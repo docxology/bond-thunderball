@@ -1,5 +1,33 @@
-# Code-centric exemplar: optional monorepo adapters only.
-allow_infrastructure_imports:
-  - src/analysis/_infra.py
-  - src/_runtime.py
-  - src/benchmark_support.py
+# Layer contract — Thunderball (DISCO VOLANTE)
+# Validates the source-layer boundaries. See docs/architecture.md.
+
+layers:
+  pure_domain:
+    modules:
+      - src/thunderball/dive_planner.py
+      - src/thunderball/convoy_integrity.py
+      - src/thunderball/submersible_logistics.py
+    rules:
+      - no infrastructure imports
+      - no bond_api imports
+      - stdlib + numpy only
+      - no randomness, no wall-clock in results
+  mission_adapter:
+    modules:
+      - src/thunderball/mission.py
+    rules:
+      - only module allowed to import bond_api
+      - thin wrapping of pure domain into protocol dataclasses
+      - expose MissionProvider at module top level
+  orchestration:
+    modules:
+      - src/thunderball/manuscript_variables.py
+      - src/thunderball/figures.py
+    rules:
+      - import domain core only (plus yaml/matplotlib)
+  scripts:
+    directories:
+      - scripts/
+    rules:
+      - thin orchestrators; no business logic
+      - sys.path bootstrap via scripts/_bootstrap.py

@@ -1,10 +1,10 @@
-# References {#sec:references}
+# References
 
-Bibliography lives in [`manuscript/references.bib`](references.bib) and is read by Pandoc during PDF render. The build pipeline invokes Pandoc with `--natbib`, so every `[@key]` citation in the manuscript is rewritten to the appropriate `\cite{}`/`\citep{}`/`\citet{}` LaTeX command and resolved against the bib file.
-
-To validate that `references.bib` is syntactically clean and contains the required fields per entry type:
-
-```bash
-uv run python -m infrastructure.reference.citation.cli validate \
-    projects/working/bond/thunderball/manuscript/references.bib --strict
-```
+1. Buehlmann, A. A. (1984). *Decompression–Decompression Sickness*.
+   Berlin: Springer-Verlag. (Descriptive reference for the ZH-L16 tissue
+   model family.)
+2. Bond API / THE PROTOCOL — `bond_api` frozen `MissionProvider` protocol,
+   BOND suite Layer 1 (in-repo).
+3. Fleming, I. (1961). *Thunderball*. London: Jonathan Cape. (Film source
+   material; the underwater recovery and the *Disco Volante* submersible
+   yacht inspire the mission scenario.)

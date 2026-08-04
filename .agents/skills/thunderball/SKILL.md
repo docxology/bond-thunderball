@@ -1,53 +1,47 @@
 ---
 name: thunderball
-description: Code-centric optimization research exemplar — gradient descent, convergence analysis, automated figures, dashboard, and publication-quality PDF.
+description: Use when working inside the Thunderball (DISCO VOLANTE) BOND film package.
 version: 0.1.0
-author: docxology
-license: MIT
-tags: [exemplar, code, optimization, thin-orchestrator]
+tags: [bond, film, dive-planning, convoy-integrity, submersible-logistics]
 ---
 
-# thunderball
+# Thunderball — DISCO VOLANTE Mission Software
 
-Project-scoped skill for the in-repo exemplar at
-`projects/working/bond/thunderball/`. Load this when working inside the project.
+BOND-suite film package for the 1965 *Thunderball* underwater nuclear-recovery
+operation. Three pure domain capabilities exposed through the frozen
+`bond_api` `MissionProvider` protocol.
 
-## When to Use
+## When to use
 
-- Working inside the `thunderball` exemplar — running scripts, editing source,
-  or regenerating outputs.
-- Forking this exemplar as the starting scaffold for a new research project.
-- Validating that the exemplar's contracts (thin-orchestrator, layer boundaries,
-  no-mocks testing) still hold after changes.
+- Building/maintaining `projects/working/bond/thunderball/`.
+- Extending dive planning, convoy integrity, or submersible logistics.
 
-## Quick Reference
+## Quick reference
 
 ```bash
-# From the repository root
-uv run pytest projects/working/bond/thunderball/tests --cov=projects/working/bond/thunderball/src --cov-fail-under=90
-uv run python scripts/pipeline/stage_02_analysis.py --project templates/thunderball
-uv run python scripts/pipeline/stage_03_render.py --project templates/thunderball
-uv run python scripts/pipeline/stage_04_validate.py --project templates/thunderball
-uv run python scripts/pipeline/stage_05_copy.py --project templates/thunderball
+cd projects/working/bond/thunderball
+uv sync --extra dev                       # bind bond-api path dep
+uv run pytest tests/ --cov=src --cov-fail-under=90
+uv run ruff check src/ scripts/ tests/
+uv run ruff format --check src/ scripts/ tests/
+uv run mypy src/ scripts/
+uv run python scripts/run_mission.py       # full five-stage mission
 ```
+
+## Domain modules
+
+- `src/thunderball/dive_planner.py` — air budget + Bühlmann ZH-L16A deco.
+- `src/thunderball/convoy_integrity.py` — escort gaps, coverage, integrity score.
+- `src/thunderball/submersible_logistics.py` — power/endurance/range/optimal speed.
+
+`src/thunderball/mission.py` is the only `bond_api`-importing adapter (`MissionProvider`,
+slug `thunderball`). Domain modules are standalone.
 
 ## Pitfalls
 
-- **Keep scripts thin.** Business logic belongs in `src/` or shared
-  `infrastructure/`, not in `scripts/`.
-- **No mocks.** All tests must use real data, real files, and real
-  computation.
-- **Outputs are disposable.** Never hand-edit `output/` — regenerate from
-  source and config.
-- **Keep tracked benchmarks deterministic.** Serialize reproducible inputs,
-  objective values, and checks; keep wall-clock timing as a runtime-only
-  diagnostic.
-- **Run from the repo root.** Commands assume the template monorepo root
-  as working directory unless the child `AGENTS.md` states otherwise.
-
-## Cross-refs
-
-- Project contract: [`AGENTS.md`](../../../AGENTS.md)
-- README: [`README.md`](../../../README.md)
-- TODO: [`TODO.md`](../../../TODO.md)
-- Exemplar roster: [`projects/AGENTS.md`](../../../../../AGENTS.md)
+- Run `uv sync --extra dev` after touching `pyproject.toml`; a fresh scaffold
+  venv has no deps.
+- The deco planner bounds per-stop hold time; extreme dives legitimately cap.
+- Domain core must stay importable without `bond-api`.
+- Add manuscript tokens to `generate_variables()` and the live cross-ref test.
+- Scripts need `import _bootstrap  # noqa: E402` (deep monorepo path).

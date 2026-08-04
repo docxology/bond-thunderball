@@ -1,13 +1,8 @@
-# thunderball/data
+# data/ — Claim ledger
 
-Project-maintained **inputs** for the code exemplar (not pipeline outputs).
+- `README.md` — this index.
+- `AGENTS.md` — rules for editing `data/`.
+- `claim_ledger.yaml` — registered sourced/derived numeric claims (all values
+  derive deterministically from `src/` over `manuscript/config.yaml`).
 
-## Quick reference
-
-| File | Role |
-| --- | --- |
-| `claim_ledger.yaml` | Source-backed numeric and artifact claims for evidence validation |
-
-Generated analysis outputs belong under `output/` during pipeline runs, not here.
-
-Schema and edit protocol: [`AGENTS.md`](AGENTS.md).
+`claim_ledger.yaml` is a validation input; it does not execute agents.

@@ -1,83 +1,53 @@
 # Methodology {#sec:methodology}
 
-This section describes the implementation methodology, explicitly detailing how the optimization algorithms are constructed, validated, and analyzed using the Generalized Research Template's `infrastructure` and `tests` ecosystems.
+## Dive planning
 
-## Algorithm Implementation
+Dive planning in `src/thunderball/dive_planner.py` rests on two pieces of
+physics. First, absolute ambient pressure rises by one bar every ten metres:
+`P(d) = P_surf + d/10`. Breathing demand at depth scales with this pressure,
+so a diver with a surface air consumption (SAC) rate of
+{{CONFIG_SAC_LMIN}} L/min uses `SAC * P(d)` litres per minute at depth. A
+cylinder of {{CONFIG_CYLINDER_CAPACITY_L}} L filled to
+{{CONFIG_FILL_PRESSURE_BAR}} bar therefore holds
+`{{CONFIG_CYLINDER_CAPACITY_L}} * {{CONFIG_FILL_PRESSURE_BAR}}` litres of
+free gas, and the bottom time follows by dividing usable volume by the
+at-depth demand.
 
-### Gradient Descent Algorithm
+Second, inert-gas loading is modelled with the **Bühlmann ZH-L16A** tissue
+model: sixteen compartments, each with a nitrogen half-time and an M-value
+line `M = a*P + b`. A compartment's inert-gas pressure approaches the
+alveolar pressure `P_alv = f_N2 (P - pH2O)` exponentially on its half-time.
+The no-decompression limit at a depth is the largest bottom time for which
+every compartment stays under its M-value at that ambient pressure
+(@fig:ndl). When a dive exceeds it, `plan_decompression` emits ascending stop
+holds that discharge the controlling tissue.
 
-The core algorithm implements the iterative procedure for unconstrained optimization. The [`optimizer` module](https://github.com/docxology/template/blob/main/projects/working/bond/thunderball/src/optimizer.py) uses the standard-library `logging` logger for optional verbose diagnostics; the [analysis orchestrator](https://github.com/docxology/template/blob/main/projects/working/bond/thunderball/scripts/optimization_analysis.py) uses `infrastructure.core.logging.utils.get_logger`. Tests run under the hermetic boundaries defined in the [test configuration](https://github.com/docxology/template/blob/main/projects/working/bond/thunderball/tests/conftest.py).
+## Convoy integrity
 
-**Algorithm — Gradient Descent (implemented in the [optimizer module](https://github.com/docxology/template/blob/main/projects/working/bond/thunderball/src/optimizer.py#L87-L173))**
+Convoy analysis in `src/thunderball/convoy_integrity.py` treats the escort
+screen as a set of bearing angles around the protected formation. Between
+consecutive escorts there is an uncovered **angular gap**; the largest gap is
+the weakest sector a hostile interceptor can exploit. Each escort defends an
+arc of `2 * half_angle` around its bearing, and **coverage fraction** is the
+unioned defended arc divided by 360° (@fig:convoy).
 
-> **Input:** Initial point $x_0$, step size $\alpha$, tolerance $\epsilon$, max iterations $N_{\max}$
->
-> 1. Initialize $k \leftarrow 0$
-> 2. **While** $k < N_{\max}$ **do:**
->    - Compute gradient $g_k = \nabla f(x_k)$
->    - **If** $\|g_k\|_2 < \epsilon$ **then return** $x_k$ *(converged)*
->    - Update: $x_{k+1} \leftarrow x_k - \alpha \cdot g_k$
->    - $k \leftarrow k + 1$
-> 3. **Return** $x_k$ *(max iterations reached)*
+The **integrity score** combines a sigmoid gap penalty with coverage:
 
-## Infrastructure Integration
+```
+score = 1 / (1 + exp((gap - 60) / 12))  *  (0.5 + 0.5 * coverage)
+```
 
-The methodology explicitly bridges theoretical mathematics with production-grade validation through the `infrastructure.scientific` module.
+Scores above 0.7 are rated `ok`, between 0.4 and 0.7 `marginal`, and below
+0.4 `breached`. `min_escorts_for_coverage` returns the smallest uniform screen
+that reaches a coverage target.
 
-### Numerical Stability Analysis
+## Submersible logistics
 
-Rather than writing ad-hoc validation code, the project imports `infrastructure.scientific.stability.check_numerical_stability`. This utility subjects the objective function to a barrage of extreme inputs (NaN, Inf, $\pm 10^{10}$) to calculate a formalized stability score. If this score degrades, the [analysis orchestrator](https://github.com/docxology/template/blob/main/scripts/pipeline/stage_02_analysis.py) execution deliberately aborts, ensuring the methodology cannot enter unrecoverable states.
-
-### Performance Benchmarking
-
-The analysis exercises [`infrastructure.scientific.benchmarking.benchmark_function`](https://github.com/docxology/template/blob/main/infrastructure/scientific/benchmarking.py) as a runtime diagnostic. Host-dependent timing and memory observations are logged but excluded from tracked evidence. The canonical report records fixed inputs and exact objective values, while the dimensional figure reports deterministic convergence iterations and the proxy $d \times \text{iterations}$; neither surface claims that one host run proves an asymptotic bound.
-
-## Convergence Analysis
-
-For quadratic functions $f(x) = \frac{1}{2}x^T A x - b^T x$ where $A$ is positive definite, the convergence factor becomes [@bertsekas1999nonlinear]:
-
-\begin{equation}
-\label{eq:convergence_factor}
-\rho = \frac{|\lambda_{\max} - \alpha\lambda_{\min}|}{|\lambda_{\min} + \alpha\lambda_{\max}|}
-\end{equation}
-
-Optimal convergence occurs when $\alpha = \frac{2}{\lambda_{\min} + \lambda_{\max}}$, yielding $\rho = \frac{\kappa - 1}{\kappa + 1}$.
-
-## Experimental Setup
-
-### Step Size Analysis
-
-Step sizes are not chosen ad hoc in the manuscript: they are read from `experiment.step_sizes` in `manuscript/config.yaml` and passed through `run_convergence_experiment()` in `src/analysis/` (entry: `scripts/optimization_analysis.py`). The active grid for this build is:
-
-{{CONFIG_STEP_SIZES_BULLETS}}
-
-Labels follow the same agency taxonomy used for plot colours (`_agency_category` in the analysis script): **conservative** (small $\alpha$, slow but stable on $H=I$), **near-optimal** (including $\alpha=1$ where the method reaches $x^\ast$ in one step for this quadratic), **aggressive** ($1 < \alpha < 2$, still linearly contracting in $|x-x^\ast|$ but oscillatory in sign), and **divergent** ($|1-\alpha| \geq 1$).
-
-### Zero-Mock Testing Methodology
-
-The most critical aspect of the project's methodology is its validation framework. The project is governed by a strict Zero-Mock testing policy, evaluated actively by executing `uv run pytest projects/working/bond/thunderball/tests/` during the infrastructure build phase.
-
-1. **Project tests**: [`projects/working/bond/thunderball/tests/test_optimizer.py`](../tests/test_optimizer.py) exercises `src/optimizer.py` (typical, edge, boundary, and pathological inputs including NaN/Inf and zero gradients) and, when infrastructure imports succeed, call into `optimization_analysis.py` helpers—without mocks. Suite size: [`docs/_generated/COUNTS.md`](../../../../docs/_generated/COUNTS.md).
-2. **Infrastructure validation**: The repository-level `tests/infra_tests/` suite validates shared template modules (e.g. pipeline and discovery helpers) independently of this project’s manuscript.
-3. **Coverage Gates**: The [GitHub Actions CI workflow](https://github.com/docxology/template/blob/main/.github/workflows/ci.yml) enforces a mandatory ≥90% statement coverage gate on `projects/working/bond/thunderball/src/` prior to treating the project as build-green.
-
-### Stopping rule and reporting
-
-`gradient_descent()` terminates when $\|\nabla f(x_k)\|$ falls below `experiment.tolerance`, when $k$ reaches `experiment.max_iterations`, or when an objective, gradient, or update becomes non-finite. The boolean `converged` plus `termination_reason` in exported CSV rows distinguish these outcomes. A non-finite candidate is rejected before it enters `objective_history`, preserving the last finite state for reproducible reporting. Downstream, `scripts/z_generate_manuscript_variables.py` aggregates the CSV into `RESULT_*` placeholders so tables and prose cannot drift from the last analysis run.
-
-### Figure generation contract
-
-Each figure in `03_results.md` maps to a generator in `src/figures/` (`generate_convergence_plot`, `generate_step_size_sensitivity_plot`, `generate_convergence_rate_plot`, `generate_complexity_visualization`, `generate_stability_visualization`, `generate_benchmark_visualization`), orchestrated by `src/analysis/` / `scripts/optimization_analysis.py`. Captions in the markdown intentionally name the function and the key parameters (tolerance lines, grids, dimensions) so reviewers can navigate from PDF to code without inferring hidden defaults.
-
-The same generator writes explicit `metadata.alt_text` for every registered
-figure. The alt text states what the visual encodes and preserves the boundary
-between deterministic observations and host-dependent diagnostics. Run the
-opt-in publication migration gate with
-`--require-figure-accessibility` to verify that every referenced figure has
-this metadata before promotion.
-
-## Analysis Pipeline & LaTeX Integration
-
-The automated analysis script leverages [`infrastructure.core.progress`](https://github.com/docxology/template/blob/main/infrastructure/core/progress.py) (`ProgressBar`, `SubStageProgress`) to orchestrate experiments, collect convergence trajectories, and generate publication-quality visualizations seamlessly.
-
-The research template supports advanced LaTeX customization through the `preamble.md` configuration. This is ingested directly by `infrastructure.rendering.latex_utils.py` and `pdf_renderer.py`, automatically linking compiled PGF plots and BibTeX citations. This automated approach ensures an unbreakable chain of custody from raw algorithmic execution to the final rendered manuscript.
+Submersible logistics in `src/thunderball/submersible_logistics.py` models
+underwater propulsion with a cubic speed-power law plus a constant hotel
+load: `P(v) = k v^3 + H`. Endurance is `E / P(v)`, and range is
+`v * E / P(v)` (@fig:range). The speed that maximises range balances the
+cubic drag term against the hotel load; because `R(v)` rises then falls, the
+optimum is found from the derivative vanishing at `k v^3 = H/2`. The inverse
+problem — energy required to transit a given range — inverts the cubic via a
+closed-form root.

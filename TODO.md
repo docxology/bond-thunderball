@@ -1,68 +1,62 @@
-# thunderball TODO
+# TODO — Thunderball (DISCO VOLANTE)
 
-Forward-only backlog for the code-first numerical exemplar — the reference
-thin-orchestrator control-positive path for code-centric research projects.
+## Status
 
-## Current validation evidence
+Phase-2 build of the `thunderball` BOND film package is **complete** and
+gated (pytest --cov-fail-under=90, ruff, mypy, lineage zero, git clean).
 
-- Manuscript pre-render gate: `uv run python -m infrastructure.validation.cli prerender projects/working/bond/thunderball/manuscript --repo-root .`
-- Project tests and coverage: `uv run pytest projects/working/bond/thunderball/tests/ --cov=projects/working/bond/thunderball/src --cov-fail-under=90`
-- Stage 02 analysis must write `output/data/optimization_results.csv` before strict manuscript-variable generation: `uv run python scripts/pipeline/stage_02_analysis.py --project templates/thunderball`
-- Stage 03 manuscript render: `uv run python scripts/pipeline/stage_03_render.py --project templates/thunderball`
-- Stage 04 output validation: `uv run python scripts/pipeline/stage_04_validate.py --project templates/thunderball`
-- Repo drift gate: `uv run python scripts/audit/check_template_drift.py --strict`
-- Code quality: `uv run ruff check projects/working/bond/thunderball/src/` and `uv run mypy projects/working/bond/thunderball/src/` must both pass clean.
-- Benchmark reproducibility: tracked benchmark reports and figures contain only deterministic facts; wall-clock timing is logged as a runtime diagnostic, and two-run byte-equality tests enforce the boundary.
-- Live test count and measured coverage percentage → [`docs/_generated/COUNTS.md`](../../../docs/_generated/COUNTS.md) (regenerated, never hardcoded here; both numbers drift faster than this file).
+## Built
 
-## Accuracy pass — 2026-08-02 (measured)
+### Pure domain core (`src/thunderball/`)
+- `dive_planner.py` — air budget (SAC × ambient pressure), Bühlmann ZH-L16A
+  16-compartment decompression, NDL via binary search, deterministic deco
+  schedule with a bounded ascent/off-gas loop.
+- `convoy_integrity.py` — angular gaps, largest-gap detection, coverage
+  fraction (interval union), sigmoid integrity score + status,
+  min-escorts-for-coverage.
+- `submersible_logistics.py` — cubic drag + hotel-load power, endurance,
+  range, analytic optimal cruise speed, robust range-inverse (bounded
+  bisection on the imbalance minimum).
 
-- Prerender: clean (no render-blocking pitfalls, no undefined citations).
-- pytest: **242 passed**, **97.67 %** coverage on `src/` (floor 90 %).
-- Stage 02: 8/8 analysis scripts; 46 manuscript variables generated.
-- Stage 03: combined PDF rendered (25 pages), `Valid PDFs: 1/1`; 0 `^! ` lines in compile logs; 0 `??` in `pdftotext`.
-- Stage 04: all checks pass (PDF, bookends, markdown, structure, figure registry, evidence registry, design overlays, artifact manifest); rendered-provenance receipt written (54 sources / 18 config / 72 outputs).
-- Drift: `check_template_drift.py --project templates/thunderball --strict` → no drift detected.
+### Protocol adapter
+- `src/thunderball/mission.py` — `MissionProvider` (film = `thunderball`,
+  codename `DISCO VOLANTE`) implementing the frozen `bond_api` protocol;
+  registers domain callables as `GadgetRegistry` gadgets via
+  `_register_film_gadgets`. Discoverable by slug.
 
-### Fixed in this pass
+### Orchestration
+- `src/thunderball/manuscript_variables.py` — computed `{{TOKEN}}` map from
+  `manuscript/config.yaml` + domain math (deterministic, `--now` override).
+- `src/thunderball/figures.py` — `ndl_curve`, `convoy_screen`
+  (polar), `submersible_range` figures.
+- `scripts/` — `brief.py`, `recon.py`, `plan.py`, `execute.py`, `debrief.py`,
+  `run_mission.py`, `render_figures.py`, `z_generate_manuscript_variables.py`.
 
-- `fig:complexity` caption corrected to the actual 3×2 six-panel layout; replaced the false "both saturate at the iteration cap" claim (α=2.5 terminates via `non_finite`) and described the stability-width and cross-profile bottom panels.
-- Agency-category boundary corrected to the code's `α < 0.3` threshold (`manuscript/03_results.md`).
-- Removed literal `{{CONFIG_*}}` / `{{RESULT_*}}` wildcard prose in `01_introduction.md` and `07_scope_and_related_work.md` so the rendered PDF no longer leaks raw braces.
-- `scripts/AGENTS.md` + `scripts/README.md`: listed the on-disk `04_benchmark_stage.py`, `08_connector_search.py`, `09_provenance_record.py`, `10_research_workflow.py`, `__init__.py`; replaced stale `[0.01, 0.05, 0.1, 0.2]` step-size grids with the configured six-value grid.
-- `tests/AGENTS.md` + `tests/README.md`: added `test_benchmark_support.py` to diagram, class line, and bullets.
-- Root `AGENTS.md`: refreshed `SRC_F` / `M_F` mermaid listings, ProgressBar grid, stray `##` heading.
-- `docs/AGENTS.md`: corrected the `{{VARIABLE}}` token count (28 → 46) and stale per-file line counts; `docs/syntax_guide.md`: `CONFIG_VERSION` 2.5.2, added missing `RESULT_*` / `ARTIFACT_*` / `STABILITY_FUNCTION` rows, corrected the "never use `\begin{equation}`" guidance (the manuscript uses that form and it resolves).
-- `manuscript/AGENTS.md`: version 2.5.2; File Inventory token lists now match the live per-file `{{TOKEN}}` usage exactly (verified programmatically).
-- `docs/README.md`: removed the stale "127 files, 14 subdirectories" literal (COUNTS.md is authoritative).
-- Added `.agents/README.md` and `.agents/skills/README.md` per the shared exemplar catalog contract; all relative cross-references resolve.
+### Manuscript & docs
+- `manuscript/` sections rewritten for DISCO VOLANTE; `config.yaml` declares
+  mission parameters. README/AGENTS/TODO/docs rewritten for this package.
 
-## Integrity and template-status gaps
+## Integration points (declared)
 
-- Keep this exemplar as the smallest reliable control-positive path for code-centric research projects.
-- Keep dashboard, API docs, figures, and manuscript variables generated from source, not hand-maintained output snapshots.
-- Add a project-local output validation script only if it checks artifacts beyond the generic Stage 04 validators.
-- Add or document a stable final artifact-manifest refresh path for single-stage analysis/render/copy checks. **Documented:** `infrastructure.core.pipeline.artifacts.snapshot_current_artifact_manifest` serves this role.
+- **`bond-api`** is a local path dependency (`[tool.uv.sources]` in
+  `pyproject.toml`). Only `mission.py` imports it; the domain core remains
+  importable without it.
+- **Discovery**: `src/thunderball/mission.py` exposes `MissionProvider` at
+  module top level (`PROVIDER`), so the orchestrator's slug-based discovery
+  (`bond_api.discovery.load_provider("thunderball", ...)`) finds it.
+- **Gadgets**: registered with any `bond_api.GadgetRegistry` via
+  `_register_film_gadgets` (tested in `tests/test_mission.py`).
 
-## Configurable-surface gaps
+## Accepted limitations (documented in manuscript)
 
-- Keep `manuscript/config.yaml.example` as the richer copy-and-customize template for publication, LLM, testing, and steganography toggles.
-- Add any future optimizer hyperparameter config under typed source loaders rather than reading ad hoc YAML from scripts.
+- ZH-L16A without gradient factors yields large conservative NDLs at great
+  depth; the deco scheduler is deterministic and bounded (per-stop cap) and
+  is representative, not a certified dive computer.
+- Convoy metric is angular only (no range/radar weighting); logistics uses a
+  first-order cubic drag model.
 
-## Documentation and signposting gaps
+## Next (optional)
 
-- Keep README quick-start commands aligned with the qualified project name `templates/thunderball`.
-- Link new public artifacts from README, AGENTS, and `docs/_generated/exemplar_roster.md` through the generator.
-
-## Test and validator gaps
-
-- Add a negative control before widening optimizer claims beyond the bundled deterministic objectives.
-- Add dashboard schema assertions whenever dashboard fields or chart payloads change.
-- Close remaining infrastructure-path branch misses in `analysis/scientific_reports.py` and `analysis/workflow.py` with subprocess isolation tests mirroring `TestImportFallback` if coverage gates tighten further.
-
-## Ordered improvement ladder
-
-1. Preserve the strict analysis-to-manuscript variable contract.
-2. Add focused validators for any new generated artifact family.
-3. Expand benchmark scenarios only with deterministic seeds, expected-shape tests, and documented claim boundaries.
-4. Refresh generated docs after any public-surface change.
+- Bind `bond_utilities.mission_io.record_provenance_outcome` for persistent
+  outcome records once that dependency ships.
+- Add mixed-gas / trimix compartments and gradient factors to the deco model.

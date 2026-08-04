@@ -1,25 +1,40 @@
+# Experiment plan — Thunderball (DISCO VOLANTE)
+# Declares the flagship scenario, metrics, expected artifacts, and baseline.
+# Validation input only; deterministic, no autonomous execution.
+
+scenario:
+  name: "DISCO VOLANTE underwater nuclear-recovery mission"
+  film: thunderball
+  codename: DISCO VOLANTE
+
 conditions:
-  - name: conservative_step
-    role: reference
-    description: "Stable gradient-descent step below the spectral bound."
-  - name: near_optimal_step
-    role: proposed
-    description: "Template-recommended step near the stable convergence region."
-  - name: aggressive_step
-    role: variant
-    description: "Stress condition near or above the stability boundary."
-metrics:
-  primary:
-    name: objective_value
-    direction: minimize
-protocol: "Run the deterministic quadratic optimization sweep with identical initialization, seeds, tolerance, and iteration cap across all declared step-size conditions."
-expected_figures:
-  - fig:convergence_plot
-  - fig:performance_benchmark
-  - fig:step_size_sensitivity
-expected_tables:
-  - tbl:optimization_results
-baselines:
-  - conservative_step
-ablations:
-  - aggressive_step
+  dive:
+    working_depth_m: 40
+    cylinder_capacity_l: 12
+    fill_pressure_bar: 207
+    sac_rate_lmin: 20
+  convoy_screen:
+    escort_bearings_deg: [0, 45, 90, 135, 180, 225, 270, 315]
+    detection_half_angle_deg: 30
+    coverage_target: 0.9
+  submersible:
+    energy_kwh: 400
+    drag_coeff: 0.035
+    hotel_kw: 2.0
+
+primary_metric:
+  - mission success (bool): screen ok AND air duration > 0 AND best range > 0
+  - convoy integrity score (0..1) and status
+
+expected_artifacts:
+  - output/data/manuscript_variables.json (computed tokens)
+  - output/figures/ndl_curve.png
+  - output/figures/convoy_screen.png
+  - output/figures/submersible_range.png
+
+baseline: sable reference film (bond-api); this film adds domain computation
+ablation: n/a — three independent domain modules invoked by one mission
+
+determinism:
+  seed: 7
+  rule: results are pure functions of the config parameters; fixed seed, no RNG

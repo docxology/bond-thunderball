@@ -1,21 +1,5 @@
-# thunderball skill — AGENTS.md
+# thunderball skill — AGENTS
 
-Project-scoped skill bundle for the `thunderball` exemplar.
-
-| File | Purpose |
-| --- | --- |
-| [`SKILL.md`](SKILL.md) | The skill itself (frontmatter + canonical sections). |
-| [`AGENTS.md`](AGENTS.md) | This file — folder contract. |
-| [`README.md`](README.md) | Pointer for humans browsing the tree. |
-
-## Audience
-
-Agents that need to:
-
-- Drive the in-repo exemplar end-to-end.
-- Fork this exemplar as a starting scaffold.
-- Verify layer boundaries and thin-orchestrator contracts.
-
-## Cross-refs
-
-- Project root: [`../../..`](../../../).
+In-repo agent skill for the Thunderball (DISCO VOLANTE) BOND film package.
+`SKILL.md` is the canonical reference. The package guardrails are in
+`AGENTS.md` at the package root and `docs/agent_instructions.md`.

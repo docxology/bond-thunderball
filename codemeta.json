@@ -1,31 +1,29 @@
 {
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
+  "name": "Thunderball: DISCO VOLANTE — Special-Agent Mission Software",
+  "codeRepository": "local-only (no remote)",
+  "license": "https://spdx.org/licenses/MIT",
+  "version": "0.1.0",
+  "description": "BOND film package implementing deterministic special-agent mission software for dive planning (Bühlmann ZH-L16A decompression), NATO convoy integrity analysis, and submersible logistics, exposed through the frozen bond_api MissionProvider protocol.",
   "author": [
     {
-      "@id": "https://orcid.org/0000-0001-6232-9096",
       "@type": "Person",
+      "givenName": "Daniel Ari",
+      "familyName": "Friedman",
+      "email": "daniel@activeinference.institute",
       "affiliation": {
         "@type": "Organization",
         "name": "Active Inference Institute"
       },
-      "familyName": "Friedman",
-      "givenName": "Daniel Ari"
+      "@id": "https://orcid.org/0000-0001-6232-9096"
     }
   ],
-  "codeRepository": "https://github.com/docxology/thunderball",
-  "dateModified": "2026-07-10",
-  "identifier": "10.5281/zenodo.20417136",
   "keywords": [
-    "optimization algorithms",
-    "gradient descent",
-    "convergence analysis",
-    "numerical methods",
-    "mathematical programming",
-    "reproducible research",
-    "infrastructure automation"
+    "dive planning",
+    "Bühlmann decompression",
+    "convoy integrity",
+    "submersible logistics"
   ],
-  "license": "https://spdx.org/licenses/MIT",
-  "name": "Convergence Analysis of Gradient Descent Optimization",
-  "version": "2.5.2"
+  "programmingLanguage": "Python"
 }

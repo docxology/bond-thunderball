@@ -1,2 +1,5 @@
-[template_export]
-cross_root_dependencies = ["infrastructure"]
+# Thunderball (DISCO VOLANTE) — BOND film in the suite.
+# This BOND film does not use the exemplar export flow.
+
+export_mode = "disabled"
+note = "The git tree is the source of truth; see README.md and AGENTS.md."

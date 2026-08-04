@@ -1,27 +1,8 @@
-# Data Directory — Agent Guide
+# AGENTS.md — data/
 
-Versioned project **inputs** only. Pipeline outputs must not be committed here.
-
-## `claim_ledger.yaml`
-
-Evidence-registry for manuscript claims that are intentionally sourced from code, examples, or generated reports rather than `{{VARIABLE}}` injection.
-
-### Schema (preserve when adding rows)
-
-| Field | Purpose |
-| --- | --- |
-| `claim_id` | Stable identifier |
-| `kind` | Claim category |
-| `value` | Declared numeric or textual value |
-| `source` | Provenance (module, manuscript section, artifact) |
-| `source_tier` | Trust tier for validation |
-| `freshness` | Staleness policy |
-| `artifact_path` | Optional path to backing file |
-
-## Edit protocol
-
-1. Edit only when manuscript claims, figure defaults, or source-backed numeric facts change.
-2. Re-run evidence validation / pipeline stages that consume the ledger.
-3. Do not store generated CSV/JSON/PNG under `data/`.
-
-Quick orientation: [`README.md`](README.md).
+- Claims in `claim_ledger.yaml` must trace to a deterministic `src/`
+  derivation and a manuscript `{{TOKEN}}` from
+  `src/thunderball/manuscript_variables.py`.
+- Only add a claim when the value is actually computed by code; never
+  hand-author a numeric that the domain modules should produce.
+- Keep the `token` field consistent with the manuscript token map.

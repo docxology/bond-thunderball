@@ -1,57 +1,30 @@
+# Claim ledger — Thunderball (DISCO VOLANTE)
+# Registers sourced/derived numeric claims for evidence-registry validation.
+# All values are derived deterministically by src/ domain math over the
+# parameters in manuscript/config.yaml — none are hand-authored.
+
 claims:
-  - claim_id: figure-export-dpi
-    kind: number
-    value: 300
-    source: projects/working/bond/thunderball/src/viz_config.py plotting defaults (dpi)
-    source_tier: project_source
-    freshness: active
-    artifact_path: output/figures/convergence_plot.png
-  - claim_id: step-size-sensitivity-cap
-    kind: number
-    value: 500
-    source: projects/working/bond/thunderball/src/sweeps.py sensitivity_sweep max_iter cap
-    source_tier: generated_metric
-    freshness: active
-    artifact_path: output/figures/step_size_sensitivity.png
-  - claim_id: stability-log-lower
-    kind: number
-    value: -6
-    source: projects/working/bond/thunderball/src/figures/scientific_stability.py stability visualization caption
-    source_tier: project_source
-    freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: solution-relative-error-exponent
-    kind: number
-    value: -4
-    source: projects/working/bond/thunderball/manuscript/03_results.md stated precision threshold
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: manuscript/03_results.md
-  - claim_id: stability-log-upper
-    kind: number
-    value: -9
-    source: projects/working/bond/thunderball/src/figures/scientific_stability.py stability visualization caption
-    source_tier: project_source
-    freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: benchmark-tolerance-exponent
-    kind: number
-    value: -10
-    source: projects/working/bond/thunderball/scripts/optimization_analysis.py dimensional benchmark tolerance
-    source_tier: project_source
-    freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-min-iterations
-    kind: number
-    value: 219
-    source: projects/working/bond/thunderball/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-max-iterations
-    kind: number
-    value: 238
-    source: projects/working/bond/thunderball/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: output/figures/performance_benchmark.png
+  - id: ndl_at_working_depth
+    description: "No-decompression limit at the working depth (minutes)"
+    derivation: "dive_planner.compute_ndl(depth_m, BuhlmannModel ZH-L16A)"
+    token: RESULT_NDL_MINUTES
+  - id: air_duration_at_working_depth
+    description: "Bottom-time from air budget at the working depth (minutes)"
+    derivation: "dive_planner air-budget: gas_volume / (SAC * P(depth))"
+    token: RESULT_AIR_DURATION_MIN
+  - id: convoy_largest_gap
+    description: "Largest uncovered escort-sector angle (degrees)"
+    derivation: "convoy_integrity.largest_gap(bearings)"
+    token: RESULT_LARGEST_GAP_DEG
+  - id: convoy_coverage
+    description: "Escort-screen coverage fraction of the 360-degree perimeter"
+    derivation: "convoy_integrity.coverage_fraction(bearings, half_angle)"
+    token: RESULT_COVERAGE
+  - id: convoy_score_status
+    description: "Convoy integrity score and categorical status"
+    derivation: "convoy_integrity.integrity_score / integrity_status"
+    token: "RESULT_CONVOY_SCORE, RESULT_CONVOY_STATUS"
+  - id: optimal_submersible_range
+    description: "Best submersible range (nautical miles) and cruise speed"
+    derivation: "submersible_logistics.optimal_range_speed / range_nm"
+    token: "RESULT_OPTIMAL_RANGE_NM, RESULT_OPTIMAL_SPEED_KNOTS"

@@ -1,3 +1,5 @@
-# thunderball skill
+# thunderball — in-repo skill
 
-> Agent skill for [`thunderball`](../..). Load via an AGENTS.md-aware runtime.
+`SKILL.md` provides when-to-use guidance and quick reference commands for the
+Thunderball (DISCO VOLANTE) BOND film package. See `AGENTS.md` at the package
+root for the full guardrails.
