@@ -33,6 +33,9 @@ uv run python scripts/run_mission.py       # full five-stage mission
 - `src/thunderball/dive_planner.py` — air budget + Bühlmann ZH-L16A deco.
 - `src/thunderball/convoy_integrity.py` — escort gaps, coverage, integrity score.
 - `src/thunderball/submersible_logistics.py` — power/endurance/range/optimal speed.
+- `src/thunderball/sonar_detection.py` — Thorp absorption, TL, signal excess, detection range.
+- `src/thunderball/current_navigation.py` — set-and-drift dead reckoning, course-to-steer, XTE.
+- `src/thunderball/interdiction_analysis.py` — CPA/TCPA geometry, penetration time, status.
 
 `src/thunderball/mission.py` is the only `bond_api`-importing adapter (`MissionProvider`,
 slug `thunderball`). Domain modules are standalone.

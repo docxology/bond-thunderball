@@ -12,14 +12,14 @@ src/thunderball/mission.py  <-->  bond_api (frozen protocol, GadgetRegistry)
 
 The dependency arrow is one-directional and strict:
 
-* **Domain core** (`dive_planner.py`, `convoy_integrity.py`,
-  `submersible_logistics.py`) — pure math, stdlib + numpy. No
-  `infrastructure.*`, no `bond_api`. These are the load-bearing, testable
-  primitives.
+* **Domain core** — `dive_planner.py`, `convoy_integrity.py`,
+  `submersible_logistics.py`, `sonar_detection.py`, `current_navigation.py`,
+  `interdiction_analysis.py`. Pure math, stdlib only. No `infrastructure.*`,
+  no `bond_api`. These are the load-bearing, testable primitives.
 * **Mission adapter** (`mission.py`) — the only module that imports
   `bond_api`. Wraps domain outputs in the frozen protocol dataclasses and
   exposes `MissionProvider` (film slug `thunderball`) at module top level for
-  discovery. Registers domain callables as gadgets.
+  discovery, plus `PROVIDER`, `GADGETS`, and `_register_film_gadgets`.
 * **Orchestration** (`manuscript_variables.py`, `figures.py`) — may import the
   domain core plus `yaml` / `matplotlib`. Compute tokens and figures.
 * **scripts/** — thin CLIs: `sys.path` bootstrap via `_bootstrap.py`, then
@@ -40,7 +40,9 @@ The dependency arrow is one-directional and strict:
 `brief()` declares the mission → `recon(request)` surveys → `plan(brief)`
 produces steps → `execute(plan)` runs the domain core with provenance →
 `debrief(outcome)` summarises. `run_mission` in `bond_api.protocol` drives all
-five. Everything is deterministic.
+five. The plan carries six deterministic steps (dive, convoy, logistics,
+sonar, navigation, interdiction) whose results all land in the outcome dict.
+Everything is deterministic.
 
 ## Adding a new capability (algorithm)
 
@@ -57,4 +59,5 @@ five. Everything is deterministic.
 `src/thunderball/mission.py` must expose `MissionProvider` at module top
 level under a stable name, and `PROVIDER` is the shared instance. The
 `bond_api` loader imports `<slug>.mission` (here `thunderball.mission`) and
-finds it.
+finds it. Downstream fleet tooling consumes the module-level `GADGETS` map
+and `_register_film_gadgets` hook — keep their shape stable.

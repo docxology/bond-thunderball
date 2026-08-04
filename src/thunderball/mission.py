@@ -2,8 +2,10 @@
 
 This module is the thin adapter between the frozen
 :class:`bond_api.protocol.MissionProvider` contract and the pure domain core
-in :mod:`thunderball.dive_planner`, :mod:`thunderball.convoy_integrity`, and
-:mod:`thunderball.submersible_logistics`.
+in :mod:`thunderball.dive_planner`, :mod:`thunderball.convoy_integrity`,
+:mod:`thunderball.submersible_logistics`, :mod:`thunderball.sonar_detection`,
+:mod:`thunderball.current_navigation`, and
+:mod:`thunderball.interdiction_analysis`.
 
 It is deliberately a *thin* adapter: no business logic lives here. Each
 lifecycle stage delegates to the domain modules and wraps their outputs in
@@ -31,7 +33,10 @@ from bond_api.registry import GadgetRegistry
 
 from . import __version__ as _PACKAGE_VERSION
 from .convoy_integrity import assess_convoy, min_escorts_for_coverage
+from .current_navigation import assess_navigation, course_to_steer
 from .dive_planner import BuhlmannModel, compute_ndl, cylinder_gas_volume
+from .interdiction_analysis import assess_interdiction, closest_point_of_approach
+from .sonar_detection import detection_range_nm
 from .submersible_logistics import optimal_range_speed, range_nm
 
 __all__ = ["GADGETS", "PROVIDER", "MissionProvider"]
@@ -40,7 +45,8 @@ __all__ = ["GADGETS", "PROVIDER", "MissionProvider"]
 SEED = 7
 
 #: Recon/plan parameters for the flagship profile — a deep-water recovery
-#: dive and screen layout representative of the 1965 underwater assault.
+#: dive, screen layout, and threat track representative of the 1965
+#: underwater assault.
 CYLINDER_CAPACITY_L = 12.0
 FILL_PRESSURE_BAR = 207.0
 SAC_RATE_LMIN = 20.0
@@ -51,10 +57,38 @@ SUBMERSIBLE_DRAG = 0.035
 SUBMERSIBLE_HOTEL_KW = 2.0
 SUBMERSIBLE_ENERGY_KWH = 400.0
 
+# Passive-sonar scenario (source/noise levels, detection threshold).
+SONAR_F_KHZ = 10.0
+SONAR_SL_DB = 150.0
+SONAR_NL_DB = 75.0
+SONAR_DI_DB = 15.0
+SONAR_DT_DB = 10.0
+SONAR_MAX_RANGE_NM = 120.0
+
+# Set-and-drift navigation scenario.
+NAV_TRACK_DEG = 315.0
+NAV_SPEED_KNOTS = 4.0
+CURRENT_SET_DEG = 90.0
+CURRENT_DRIFT_KNOTS = 0.8
+RECOVERY_RADIUS_NM = 1.0
+
+# Interdiction scenario: threat track relative to the convoy's own course.
+CONVOY_COURSE_DEG = 45.0
+CONVOY_SPEED_KNOTS = 12.0
+THREAT_POSITION = (5.0, -2.0)
+THREAT_COURSE_DEG = 270.0
+THREAT_SPEED_KNOTS = 20.0
+SCREEN_RADIUS_NM = 2.0
+MIN_SEPARATION_NM = 1.0
+ESCORT_REACTION_H = 0.05
+
 #: Gadgets this film registers with the BOND-API GadgetRegistry — the domain
 #: callables a coordinator can invoke by name.
 GADGETS: dict[str, object] = {
+    "closest_point_of_approach": closest_point_of_approach,
     "compute_ndl": compute_ndl,
+    "course_to_steer": course_to_steer,
+    "detection_range_nm": detection_range_nm,
     "min_escorts_for_coverage": min_escorts_for_coverage,
     "optimal_range_speed": optimal_range_speed,
 }
@@ -63,9 +97,10 @@ GADGETS: dict[str, object] = {
 class MissionProvider:
     """Deterministic :class:`~bond_api.protocol.MissionProvider` for THUNDERBALL.
 
-    Drives the three domain capabilities — dive planning, convoy integrity,
-    and submersible logistics — through the five lifecycle stages and returns
-    a fully-provenanced, reproducible outcome.
+    Drives the six domain capabilities — dive planning, convoy integrity,
+    submersible logistics, passive sonar detection, set-and-drift navigation,
+    and convoy interdiction — through the five lifecycle stages and returns a
+    fully-provenanced, reproducible outcome.
     """
 
     film = "thunderball"
@@ -79,6 +114,9 @@ class MissionProvider:
                 "plan the underwater recovery dive",
                 "verify the NATO escort screen holds",
                 "confirm submersible range to reach the recovery site",
+                "confirm passive-sonar detection of the recovery site",
+                "steer the return leg against the prevailing current",
+                "interdict closing threat tracks before they reach the screen",
             ),
             assets=(
                 Asset(
@@ -99,6 +137,11 @@ class MissionProvider:
                     name="submersible_battery",
                     payload={"energy_kwh": SUBMERSIBLE_ENERGY_KWH},
                 ),
+                Asset(
+                    kind="hydrophone",
+                    name="passive_sonar",
+                    payload={"f_khz": SONAR_F_KHZ, "di_db": SONAR_DI_DB},
+                ),
             ),
             constraints=(
                 Constraint(
@@ -113,7 +156,7 @@ class MissionProvider:
         )
 
     def recon(self, request: ReconRequest) -> ReconReport:
-        """Survey the request against the three controllable domains."""
+        """Survey the request against the six controllable domains."""
         return ReconReport(
             findings=(
                 Finding(label="goal", detail=request.goal),
@@ -129,11 +172,23 @@ class MissionProvider:
                     label="logistics",
                     detail="cubic speed-power model with hotel load available",
                 ),
+                Finding(
+                    label="sonar",
+                    detail="Thorp absorption and passive-sonar range equation available",
+                ),
+                Finding(
+                    label="navigation",
+                    detail="set-and-drift vector triangle and dead-reckoning available",
+                ),
+                Finding(
+                    label="interdiction",
+                    detail="CPA geometry and screen-penetration model available",
+                ),
             )
         )
 
     def plan(self, brief: MissionBrief) -> MissionPlan:
-        """Plan the deterministic three-step mission."""
+        """Plan the deterministic six-step mission."""
         return MissionPlan(
             steps=(
                 Step(
@@ -163,6 +218,43 @@ class MissionProvider:
                         "hotel_kw": SUBMERSIBLE_HOTEL_KW,
                     },
                 ),
+                Step(
+                    name="sonar",
+                    action="assess_detection",
+                    params={
+                        "f_khz": SONAR_F_KHZ,
+                        "sl_db": SONAR_SL_DB,
+                        "nl_db": SONAR_NL_DB,
+                        "di_db": SONAR_DI_DB,
+                        "dt_db": SONAR_DT_DB,
+                        "max_range_nm": SONAR_MAX_RANGE_NM,
+                    },
+                ),
+                Step(
+                    name="navigation",
+                    action="assess_current",
+                    params={
+                        "track_deg": NAV_TRACK_DEG,
+                        "speed_knots": NAV_SPEED_KNOTS,
+                        "set_deg": CURRENT_SET_DEG,
+                        "drift_knots": CURRENT_DRIFT_KNOTS,
+                        "recovery_radius_nm": RECOVERY_RADIUS_NM,
+                    },
+                ),
+                Step(
+                    name="interdiction",
+                    action="assess_threat",
+                    params={
+                        "convoy_course_deg": CONVOY_COURSE_DEG,
+                        "convoy_speed_knots": CONVOY_SPEED_KNOTS,
+                        "threat_position": tuple(THREAT_POSITION),
+                        "threat_course_deg": THREAT_COURSE_DEG,
+                        "threat_speed_knots": THREAT_SPEED_KNOTS,
+                        "screen_radius_nm": SCREEN_RADIUS_NM,
+                        "min_separation_nm": MIN_SEPARATION_NM,
+                        "reaction_time_h": ESCORT_REACTION_H,
+                    },
+                ),
             )
         )
 
@@ -171,6 +263,9 @@ class MissionProvider:
         dive_params = plan.steps[0].params
         convoy_params = plan.steps[1].params
         logistics_params = plan.steps[2].params
+        sonar_params = plan.steps[3].params
+        nav_params = plan.steps[4].params
+        interdiction_params = plan.steps[5].params
 
         model = BuhlmannModel()
         ndl = compute_ndl(dive_params["depth_m"], model=model)
@@ -198,8 +293,47 @@ class MissionProvider:
             logistics_params["hotel_kw"],
         )
 
+        sonar_range = detection_range_nm(
+            sonar_params["sl_db"],
+            sonar_params["nl_db"],
+            sonar_params["di_db"],
+            sonar_params["f_khz"],
+            sonar_params["dt_db"],
+            sonar_params["max_range_nm"],
+        )
+
+        # Navigation: the return leg duration is the dive's air-budget bottom
+        # time (hours), so the drift assessment uses the planned dive itself.
+        bottom_hours = gas_duration_min / 60.0
+        nav = assess_navigation(
+            desired_track_deg=nav_params["track_deg"],
+            speed_knots=nav_params["speed_knots"],
+            set_deg=nav_params["set_deg"],
+            drift_knots=nav_params["drift_knots"],
+            duration_h=bottom_hours,
+            recovery_radius_nm=nav_params["recovery_radius_nm"],
+        )
+
+        interdiction = assess_interdiction(
+            own_position=(0.0, 0.0),
+            own_course_deg=interdiction_params["convoy_course_deg"],
+            own_speed_knots=interdiction_params["convoy_speed_knots"],
+            threat_position=tuple(interdiction_params["threat_position"]),
+            threat_course_deg=interdiction_params["threat_course_deg"],
+            threat_speed_knots=interdiction_params["threat_speed_knots"],
+            gap_deg=convoy.largest_gap_deg,
+            screen_radius_nm=interdiction_params["screen_radius_nm"],
+            min_separation_nm=interdiction_params["min_separation_nm"],
+            reaction_time_h=interdiction_params["reaction_time_h"],
+        )
+
         success = (
-            convoy.status.label == "ok" and gas_duration_min > 0.0 and opt_range > 0.0
+            convoy.status.label == "ok"
+            and gas_duration_min > 0.0
+            and opt_range > 0.0
+            and sonar_range > 0.0
+            and not nav.drift_exceeds_recovery
+            and interdiction.status == "held"
         )
         return MissionOutcome(
             success=success,
@@ -213,6 +347,16 @@ class MissionProvider:
                 "min_escorts_90pct": min_escorts,
                 "optimal_speed_knots": round(v_opt, 3),
                 "optimal_range_nm": round(opt_range, 2),
+                "sonar_detection_range_nm": round(sonar_range, 2),
+                "nav_drift_nm": round(nav.drift_nm, 3),
+                "nav_drift_exceeds_recovery": nav.drift_exceeds_recovery,
+                "nav_heading_to_steer_deg": round(nav.heading_to_steer_deg, 2),
+                "nav_ground_speed_knots": round(nav.ground_speed_knots, 3),
+                "interdiction_cpa_nm": round(interdiction.d_cpa_nm, 3),
+                "interdiction_t_cpa_h": round(interdiction.t_cpa_h, 4),
+                "interdiction_closing_knots": round(interdiction.closing_knots, 2),
+                "interdiction_penetration_h": round(interdiction.penetration_time_h, 4),
+                "interdiction_status": interdiction.status,
                 "steps_completed": len(plan.steps),
             },
             provenance=Provenance(
@@ -231,6 +375,9 @@ class MissionProvider:
                 "deco-stop margin is mandatory beneath maximum working depth",
                 "a convoy screen is only as strong as its largest angular gap",
                 "range is maximised by balancing the cubic drag law against hotel load",
+                "passive detection range collapses as ambient noise rises",
+                "set and drift force a course correction on every return leg",
+                "the screen holds only while escorts react faster than the gap is crossed",
             ),
         )
 

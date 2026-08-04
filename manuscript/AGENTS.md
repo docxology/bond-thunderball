@@ -21,7 +21,7 @@ package.
 
 All figures use Pandoc-crossref `{#fig:label}`; reference with `[@fig:label]`
 or `@fig:label` in `03_results.md`. See the table in `README.md` for the
-three concept figures.
+five concept figures.
 
 ## Config
 

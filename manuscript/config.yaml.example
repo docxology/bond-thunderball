@@ -39,3 +39,25 @@ mission:
     energy_kwh: 400
     drag_coeff: 0.035
     hotel_kw: 2.0
+  sonar:
+    f_khz: 10.0
+    sl_db: 150.0
+    nl_db: 75.0
+    di_db: 15.0
+    dt_db: 10.0
+    max_range_nm: 120.0
+  navigation:
+    track_deg: 315.0
+    speed_knots: 4.0
+    current_set_deg: 90.0
+    current_drift_knots: 0.8
+    recovery_radius_nm: 1.0
+  interdiction:
+    convoy_course_deg: 45.0
+    convoy_speed_knots: 12.0
+    threat_position: [5.0, -2.0]
+    threat_course_deg: 270.0
+    threat_speed_knots: 20.0
+    screen_radius_nm: 2.0
+    min_separation_nm: 1.0
+    reaction_time_h: 0.05

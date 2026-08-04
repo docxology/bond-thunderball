@@ -82,3 +82,25 @@ def test_z_generate_manuscript_variables_writes_json(tmp_path) -> None:
     if json_path.exists():
         payload = json.loads(json_path.read_text(encoding="utf-8"))
         assert payload["MISSION_CODENAME"] == "DISCO VOLANTE"
+
+
+def test_pure_core_imports_without_bond_api() -> None:
+    """Guardrail probe: importing the package and its pure domain modules must
+    not pull bond_api into sys.modules (the adapter is lazily imported)."""
+    probe = (
+        "import sys\n"
+        "import thunderball\n"
+        "assert 'bond_api' not in sys.modules, 'bond_api leaked into pure core'\n"
+        "from thunderball.sonar_detection import thorp_absorption\n"
+        "from thunderball.interdiction_analysis import closest_point_of_approach\n"
+        "print('ok', thorp_absorption(10.0) > 0.0)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "ok True" in result.stdout

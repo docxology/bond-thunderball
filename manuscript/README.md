@@ -35,6 +35,8 @@ Figures are rendered by `src/thunderball/figures.py` into `output/figures/`:
 | `{#fig:ndl}` | `output/figures/ndl_curve.png` |
 | `{#fig:convoy}` | `output/figures/convoy_screen.png` |
 | `{#fig:range}` | `output/figures/submersible_range.png` |
+| `{#fig:sonar}` | `output/figures/transmission_loss.png` |
+| `{#fig:drift}` | `output/figures/drift_geometry.png` |
 
 Reference figures via Pandoc-crossref (`[@fig:ndl]`, `@fig:range`), never with
 hardcoded numbers.

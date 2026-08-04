@@ -15,8 +15,9 @@ review_gates:
     role: lint and type cleanliness
 
 source_policy:
-  - pure domain core (dive_planner, convoy_integrity, submersible_logistics)
-    uses stdlib + numpy only; no infrastructure, no bond_api imports.
+  - pure domain core (dive_planner, convoy_integrity, submersible_logistics,
+    sonar_detection, current_navigation, interdiction_analysis) uses stdlib
+    only; no infrastructure, no bond_api imports.
   - only src/thunderball/mission.py adapts to the frozen bond_api protocol.
   - deterministic: fixed seed, no untracked RNG, no wall-clock in results.
 

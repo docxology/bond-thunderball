@@ -35,13 +35,28 @@ def test_brief_is_protocol_brief() -> None:
 def test_recon_returns_findings() -> None:
     report = PROVIDER.recon(ReconRequest(goal="verify the screen"))
     assert isinstance(report, ReconReport)
-    assert {f.label for f in report.findings} == {"goal", "dive", "convoy", "logistics"}
+    assert {f.label for f in report.findings} == {
+        "goal",
+        "dive",
+        "convoy",
+        "logistics",
+        "sonar",
+        "navigation",
+        "interdiction",
+    }
 
 
-def test_plan_has_three_steps() -> None:
+def test_plan_has_six_steps() -> None:
     plan = PROVIDER.plan(PROVIDER.brief())
     assert isinstance(plan, MissionPlan)
-    assert [s.name for s in plan.steps] == ["dive", "convoy", "logistics"]
+    assert [s.name for s in plan.steps] == [
+        "dive",
+        "convoy",
+        "logistics",
+        "sonar",
+        "navigation",
+        "interdiction",
+    ]
 
 
 def test_execute_is_successful_and_provenanced() -> None:
@@ -52,12 +67,15 @@ def test_execute_is_successful_and_provenanced() -> None:
     assert outcome.provenance.input_hash
     assert outcome.results["convoy_status"] == "ok"
     assert outcome.results["min_escorts_90pct"] == 6
+    assert outcome.results["interdiction_status"] == "held"
+    assert outcome.results["sonar_detection_range_nm"] > 0.0
+    assert outcome.results["nav_drift_exceeds_recovery"] is False
 
 
 def test_debrief_records_lessons() -> None:
     outcome = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief()))
     debrief = PROVIDER.debrief(outcome)
-    assert len(debrief.lessons) == 3
+    assert len(debrief.lessons) == 6
     assert all(lesson for lesson in debrief.lessons)
 
 
@@ -103,6 +121,10 @@ def test_gadgets_are_domain_callables() -> None:
     assert callable(GADGETS["compute_ndl"])
     assert callable(GADGETS["min_escorts_for_coverage"])
     assert callable(GADGETS["optimal_range_speed"])
+    assert callable(GADGETS["detection_range_nm"])
+    assert callable(GADGETS["course_to_steer"])
+    assert callable(GADGETS["closest_point_of_approach"])
+    assert len(GADGETS) == 6
 
 
 def test_execute_is_deterministic() -> None:

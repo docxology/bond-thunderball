@@ -4,7 +4,7 @@
 
 A BOND-suite film package: deterministic special-agent mission software for
 the underwater recovery of two hijacked NATO nuclear bombs. It implements
-three pure domain capabilities and exposes them through the frozen
+six pure domain capabilities and exposes them through the frozen
 `bond_api` `MissionProvider` protocol.
 
 ## Concepts
@@ -14,6 +14,9 @@ three pure domain capabilities and exposes them through the frozen
 | `src/thunderball/dive_planner.py` | Dive planning | Air budget (SAC × depth pressure), Bühlmann ZH-L16A 16-compartment decompression, no-decompression limits, deco stops |
 | `src/thunderball/convoy_integrity.py` | NATO convoy integrity | Escort-screen angular gaps, largest-gap detection, coverage fraction, integrity score + status |
 | `src/thunderball/submersible_logistics.py` | Submersible logistics | Cubic speed–power drag + hotel load, endurance, range, optimal cruise speed, mission energy |
+| `src/thunderball/sonar_detection.py` | Passive sonar | Thorp absorption, transmission loss, signal excess, detection range + verdict |
+| `src/thunderball/current_navigation.py` | Set-and-drift navigation | Current vectors, dead reckoning, course to steer, cross-track error, drift limits |
+| `src/thunderball/interdiction_analysis.py` | Convoy interdiction | Closest point of approach (CPA/TCPA), screen penetration time, interdiction status |
 
 `src/thunderball/mission.py` is a thin adapter wrapping these in the frozen
 BOND-API `MissionProvider` (`brief` / `recon` / `plan` / `execute` / `debrief`),
@@ -54,7 +57,7 @@ Coverage and test counts are tracked in `docs/_generated/COUNTS.md`.
 
 ## Layout
 
-- `src/thunderball/` — pure domain core + `mission.py` protocol adapter + figures + manuscript variables
+- `src/thunderball/` — six pure domain modules + `mission.py` protocol adapter + figures + manuscript variables
 - `scripts/` — thin mission CLIs
 - `tests/` — real-computation tests (no mocks), one file per concept plus mission/manuscript/figures/smoke
 - `manuscript/` — DISCO VOLANTE manuscript (tokens computed from `config.yaml`)

@@ -50,4 +50,40 @@ load: `P(v) = k v^3 + H`. Endurance is `E / P(v)`, and range is
 cubic drag term against the hotel load; because `R(v)` rises then falls, the
 optimum is found from the derivative vanishing at `k v^3 = H/2`. The inverse
 problem — energy required to transit a given range — inverts the cubic via a
-closed-form root.
+bounded root-find on the imbalance `f(v) = R k v^3 - E v + R H`.
+
+## Passive sonar detection
+
+Detection modelling in `src/thunderball/sonar_detection.py` uses the passive
+sonar equation. **Thorp absorption** gives the frequency-dependent seawater
+attenuation (`alpha(f) = 0.11 f²/(1+f²) + 44 f²/(4100+f²) + 2.75e-4 f² + 0.003`
+dB/km), and **transmission loss** combines spherical spreading with
+absorption: `TL(r) = 20 log10(r) + alpha(f) r` (@fig:sonar). The **signal
+excess** `SE = SL - TL - (NL - DI) - DT` is the detection margin; the
+**detection range** is where `SE` crosses zero, located by bounded bisection.
+
+## Set-and-drift navigation
+
+Navigation in `src/thunderball/current_navigation.py` works in the
+east/north plane with the current expressed as a set/drift vector. Own
+velocity and current are vector-added to give ground velocity, and dead
+reckoning integrates it over time. **Course to steer** solves the classic
+vector triangle: the current's component perpendicular to the desired track
+is cancelled by a component of own velocity, `theta = asin(-c_perp / v)`,
+giving the heading that makes good the track. **Cross-track error** is the
+signed perpendicular distance off the track line, and the drift distance over
+the dive's bottom time is checked against the recovery radius
+(@fig:drift).
+
+## Convoy interdiction
+
+Interdiction in `src/thunderball/interdiction_analysis.py` layers relative
+motion over the static screen. The **closest point of approach** between a
+threat track and the convoy follows from relative position and velocity:
+`t_cpa = max(0, -dot(rel_pos, rel_vel) / |rel_vel|²)` and
+`d_cpa = |rel_pos + rel_vel t_cpa|`, with closing speed derived from the same
+dot product. The **screen penetration time** is the chord across the largest
+gap (`2 r sin(gap/2)`) divided by the interceptor's speed. The **interdiction
+status** combines these: `breached` when the CPA is inside the minimum
+separation, `held` when escorts react before the threat closes or crosses the
+gap, and `penetrated` otherwise.

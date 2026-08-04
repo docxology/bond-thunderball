@@ -28,3 +28,23 @@ claims:
     description: "Best submersible range (nautical miles) and cruise speed"
     derivation: "submersible_logistics.optimal_range_speed / range_nm"
     token: "RESULT_OPTIMAL_RANGE_NM, RESULT_OPTIMAL_SPEED_KNOTS"
+  - id: sonar_detection_range
+    description: "Passive-sonar detection range (nautical miles)"
+    derivation: "sonar_detection.detection_range_nm over Thorp TL"
+    token: RESULT_SONAR_RANGE_NM
+  - id: nav_drift_over_dive
+    description: "Current drift over the dive bottom time (nautical miles)"
+    derivation: "current_navigation.drift_distance(drift, bottom_hours)"
+    token: RESULT_NAV_DRIFT_NM
+  - id: nav_heading_to_steer
+    description: "Course-to-steer heading that makes good the return track"
+    derivation: "current_navigation.course_to_steer vector triangle"
+    token: RESULT_NAV_HEADING_DEG
+  - id: interdiction_cpa
+    description: "Threat closest-point-of-approach distance and time"
+    derivation: "interdiction_analysis.closest_point_of_approach"
+    token: "RESULT_CPA_DIST_NM, RESULT_CPA_TIME_H"
+  - id: interdiction_status
+    description: "Escort-screen interdiction verdict"
+    derivation: "interdiction_analysis.interdiction_status"
+    token: RESULT_INTERDICTION_STATUS
