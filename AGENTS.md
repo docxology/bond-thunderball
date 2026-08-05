@@ -44,8 +44,11 @@ Plus `manuscript_variables.py` (53 computed manuscript tokens) and `figures.py`
 
 - **No mocks** anywhere in `tests/` (no `unittest.mock` / `MagicMock` /
   `@patch` / `create_autospec`).
-- **Deterministic**: fixed seed 7, no untracked RNG, no wall-clock in results.
-  `GENERATION_TIMESTAMP` is the only timestamp and is overridable via `--now`.
+- **Deterministic**: fixed seed 7, no untracked RNG, no wall-clock anywhere
+  in generated artifacts. `GENERATION_TIMESTAMP` is the only timestamp and it
+  comes from the committed `paper.date` in `manuscript/config.yaml`, so
+  regeneration is byte-identical with no flag; `--now` only pins a different
+  value on purpose. Bound by `tests/test_regeneration_determinism.py`.
 - **Coverage ≥ 90%** line + branch on `src/`.
 - **Lint/type**: `ruff check`, `ruff format`, and `mypy` clean on `src/`,
   `scripts/`, and `tests/`.
@@ -80,8 +83,8 @@ uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
 
-# Regenerate manuscript tokens + figures deterministically
-uv run python scripts/z_generate_manuscript_variables.py --now 2026-01-01T00:00:00+00:00
+# Regenerate manuscript tokens + figures (byte-identical; no flag needed)
+uv run python scripts/z_generate_manuscript_variables.py
 
 # Run the mission end to end
 uv run python scripts/run_mission.py

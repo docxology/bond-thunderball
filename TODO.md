@@ -6,7 +6,7 @@ ZH-L16A dive planning, convoy-screen integrity, submersible logistics, passive
 sonar, set-and-drift navigation, convoy interdiction) exposed through the frozen
 `bond_api` `MissionProvider` protocol, plus a token-driven manuscript and five
 generated figures. Measured this session on CPython 3.14.6 / macOS arm64:
-**182 tests passing, 0 failed, 0 skipped, 100.00% line+branch coverage of
+**192 tests passing, 0 failed, 0 skipped, 100.00% line+branch coverage of
 `src/`** against the 90% floor, working tree clean. All five findings in
 `output/verify/thunderball.json` (2 SEVERE, 3 MODERATE) were re-checked against
 today's code and **all five are closed** — see *Closed since the audit* below.
@@ -143,3 +143,9 @@ this session.
 | MODERATE — `time_to_minimum_separation` docstring inverted, finite branch meaningless | Rewritten as the hyperbolic range profile (`interdiction_analysis.py:137-169`); oracle test steps the real tracks forward to the returned time |
 | MODERATE — drift computed over the gas-limited rather than planned bottom time | `manuscript_variables.py:156-157` now passes `dive.bottom_minutes / 60.0` into `assess_navigation`; `tests/test_manuscript_variables.py:230-244` asserts the two durations are distinguishable and that the token matches the planned one |
 | MODERATE — ZH-L16A bands attributed to `[@usnavydiving2016]` | Corrected in three files; the honest scope is now a Known limitation above |
+
+## Closed outside the audit
+
+| Finding | Where it now stands |
+|---|---|
+| **Byte-identical regeneration was false.** `manuscript_variables.py` defaulted `GENERATION_TIMESTAMP` to `datetime.now(timezone.utc)`, so every run of `scripts/z_generate_manuscript_variables.py` rewrote `output/data/manuscript_variables.json` with different bytes (two runs a second apart hashed `ef72f22d…` and `06dde2df…`) while the manuscript, `AGENTS.md`, and `docs/architecture.md` all claimed no wall-clock dependence. The existing token tests injected a fixed `now`, so they could never see it. | The stamp now comes from the committed `paper.date` in `manuscript/config.yaml` via `manuscript_variables.generation_timestamp()`; `--now` remains an explicit override and is no longer needed for determinism. `tests/test_regeneration_determinism.py` runs the real CLI twice, 1.05 s apart, with no override and compares every written byte of the JSON and all five PNGs — proven failable by temporarily restoring the wall clock (3 tests red). Prose in `manuscript/06_reproducibility.md`, `AGENTS.md`, `docs/architecture.md`, `docs/agent_instructions.md`, `docs/testing_philosophy.md`, `scripts/README.md`, and `scripts/CONVENTIONS.md` updated to state what actually runs. |

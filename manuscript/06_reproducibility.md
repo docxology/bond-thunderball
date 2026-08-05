@@ -4,8 +4,12 @@ DISCO VOLANTE is deterministic by construction:
 
 * **Fixed seed** — no random draws anywhere; results are pure functions of the
   config parameters.
-* **No wall-clock dependence** — `GENERATION_TIMESTAMP` is the only timestamp
-  and is overridable (`--now`) for byte-identical regeneration.
+* **No wall-clock dependence** — `GENERATION_TIMESTAMP` is the only timestamp,
+  and it is read from the committed `paper.date` in `manuscript/config.yaml`,
+  never from the clock. Regenerating the artifacts on any later day rewrites
+  the same bytes with no flag; `--now` exists only to pin a different value
+  deliberately. The one environment-derived token is `PYTHON_VERSION`, so the
+  byte-identical claim holds for a fixed interpreter.
 * **Computed tokens** — every `{{RESULT_*}}` value in this manuscript is
   recomputed from `src/` domain math, never hand-authored.
 * **Provenance** — every `MissionOutcome` carries a fixed input hash and seed,
@@ -13,7 +17,10 @@ DISCO VOLANTE is deterministic by construction:
 
 The concept figures (`output/figures/ndl_curve.png`, `convoy_screen.png`,
 `submersible_range.png`, `transmission_loss.png`, `drift_geometry.png`) are
-regenerated deterministically.
+regenerated deterministically. The claim is bound, not asserted:
+`tests/test_regeneration_determinism.py` runs the hydration CLI twice, more
+than a clock tick apart, and compares every written byte of the token JSON and
+all five PNGs.
 
 ## Test suite
 

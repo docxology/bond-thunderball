@@ -9,7 +9,7 @@ uv run pytest tests/ --cov=src --cov-fail-under=90
 
 ## Test suite
 
-- Test count: **182**
+- Test count: **192**
 - Line + branch coverage on `src/`: **100.00%** (gate: 90%)
 - Failures: **0** · Skipped: **0** · Mock-framework uses: **0**
 
@@ -22,11 +22,11 @@ uv run pytest tests/ --cov=src --cov-fail-under=90
 | `src/thunderball/dive_planner.py` | 144 | 38 | 100.00% |
 | `src/thunderball/figures.py` | 115 | 2 | 100.00% |
 | `src/thunderball/interdiction_analysis.py` | 80 | 16 | 100.00% |
-| `src/thunderball/manuscript_variables.py` | 82 | 4 | 100.00% |
+| `src/thunderball/manuscript_variables.py` | 95 | 10 | 100.00% |
 | `src/thunderball/mission.py` | 77 | 0 | 100.00% |
 | `src/thunderball/sonar_detection.py` | 54 | 14 | 100.00% |
 | `src/thunderball/submersible_logistics.py` | 74 | 16 | 100.00% |
-| **TOTAL** | **834** | **156** | **100.00%** |
+| **TOTAL** | **847** | **162** | **100.00%** |
 
 `src/thunderball/__init__.py` is excluded by `[tool.coverage.run] omit` — it is
 a re-export facade with no logic, and its exports are exercised through the
@@ -43,6 +43,7 @@ per-module tests.
 | `test_interdiction_analysis.py` | 22 |
 | `test_manuscript_variables.py` | 14 |
 | `test_mission.py` | 16 |
+| `test_regeneration_determinism.py` | 10 |
 | `test_scripts_smoke.py` | 10 |
 | `test_sonar_detection.py` | 19 |
 | `test_submersible_logistics.py` | 15 |

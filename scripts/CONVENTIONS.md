@@ -6,7 +6,9 @@
   then `thunderball`; ruff enforces the formatting.
 - Deterministic stdout: scripts print computed values only (no wall-clock, no
   RNG) so smoke tests can assert stable output. The one timestamp in the
-  system, `GENERATION_TIMESTAMP`, is pinned with `--now`.
+  system, `GENERATION_TIMESTAMP`, is read from the committed `paper.date` in
+  `manuscript/config.yaml`; `--now` overrides it but is not needed for
+  byte-identical regeneration.
 - Use `raise SystemExit(main())`; `main()` returns an int exit code.
 - Business logic belongs in `src/thunderball/`. A script that computes
   anything a test would want to assert on is in the wrong layer.

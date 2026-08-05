@@ -21,9 +21,10 @@ suite-level guardrails apply on top of everything here.
 1. **No mocks.** No `unittest.mock`, `MagicMock`, `@patch`, or
    `create_autospec` anywhere in `tests/`. Real computation, real protocol
    types.
-2. **Deterministic.** Fixed seed (7); no untracked randomness; no wall-clock in
-   results. The only timestamp is `GENERATION_TIMESTAMP`, overridable via
-   `--now`.
+2. **Deterministic.** Fixed seed (7); no untracked randomness; no wall-clock
+   in generated artifacts. The only timestamp is `GENERATION_TIMESTAMP`, taken
+   from the committed `paper.date` in `manuscript/config.yaml`; `--now`
+   overrides it but is never needed for byte-identical regeneration.
 3. **Thin orchestrators.** Business logic lives in `src/thunderball/`. Scripts
    shape argv, delegate, print, and return an exit code. They contain no math
    and no `sys.path` manipulation.
@@ -80,7 +81,7 @@ grep -rnE "^(from|import) bond_api" src/thunderball/ | grep -v "mission.py" \
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
-uv run python scripts/z_generate_manuscript_variables.py --now 2026-01-01T00:00:00+00:00
+uv run python scripts/z_generate_manuscript_variables.py
 git status --short
 ```
 

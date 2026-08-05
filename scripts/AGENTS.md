@@ -16,4 +16,5 @@ Thin orchestrators only. Rules:
    unconditional — a script that silently writes nothing fails.
 
 `z_generate_manuscript_variables.py` is the only script with a `z_` prefix
-(runs last, mirrors the BOND CLI `--allow-draft`/`--now` conventions).
+(runs last, mirrors the BOND CLI `--allow-draft`/`--now` conventions; `--now`
+is an override, not a determinism requirement).

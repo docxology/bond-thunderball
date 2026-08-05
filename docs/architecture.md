@@ -85,7 +85,9 @@ what makes `import thunderball` resolve.
 core and returns a provenanced `MissionOutcome` → `debrief(outcome)` summarises
 with standing lessons. `bond_api.protocol.run_mission` drives all five.
 `execute()` is byte-identical across runs; the only timestamp anywhere in the
-package is `GENERATION_TIMESTAMP`, overridable via `--now`.
+package is `GENERATION_TIMESTAMP`, and it is derived from the committed
+`paper.date` in `manuscript/config.yaml` rather than the clock, so regenerating
+the artifacts rewrites the same bytes without `--now`.
 
 ## Adding a new capability
 

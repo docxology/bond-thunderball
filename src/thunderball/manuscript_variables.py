@@ -5,6 +5,12 @@ hand-authored in prose. Values come either straight from
 ``manuscript/config.yaml`` or are derived deterministically by re-running the
 pure domain modules over those parameters (the exact same computation the
 mission adapter performs), so the prose can never drift from the code.
+
+No value here is read from the wall clock. ``GENERATION_TIMESTAMP`` is derived
+from the committed ``paper.date`` in ``manuscript/config.yaml``, so
+regenerating the persisted artifacts on a different day produces identical
+bytes. ``tests/test_regeneration_determinism.py`` runs the real generator CLI
+twice, more than a clock-tick apart, and compares the written bytes.
 """
 
 from __future__ import annotations
@@ -65,6 +71,45 @@ def _fmt(value: float, digits: int = 2) -> str:
     return f"{value:.{digits}f}"
 
 
+def generation_timestamp(paper: dict[str, Any], now: datetime | None = None) -> str:
+    """Render ``GENERATION_TIMESTAMP`` without ever reading the wall clock.
+
+    The default comes from the committed ``paper.date`` in
+    ``manuscript/config.yaml`` — a fixed, version-controlled source — so the
+    persisted artifacts are byte-identical no matter when they are
+    regenerated. ``now`` overrides it only when a caller pins an explicit
+    value; nothing in this package passes the current time.
+
+    Args:
+        paper: The ``paper`` section of the manuscript config.
+        now: Explicit override. A naive value is interpreted as UTC.
+
+    Returns:
+        ISO-8601 timestamp to seconds resolution.
+
+    Raises:
+        ValueError: If ``now`` is omitted and ``paper.date`` is missing,
+            empty, or not an ISO date.
+    """
+    stamp = now
+    if stamp is None:
+        raw = paper.get("date")
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError(
+                "config.yaml paper.date is required for GENERATION_TIMESTAMP: "
+                "the stamp is taken from the committed config, never the clock"
+            )
+        try:
+            stamp = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                f"config.yaml paper.date is not an ISO date: {raw!r}"
+            ) from exc
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.isoformat(timespec="seconds")
+
+
 def generate_variables(
     config: dict[str, Any] | None = None,
     project_root: str | Path | None = None,
@@ -75,8 +120,9 @@ def generate_variables(
     Args:
         config: Pre-loaded config; defaults to :func:`load_mission_config`.
         project_root: Root used to locate ``manuscript/config.yaml``.
-        now: Clock override for ``GENERATION_TIMESTAMP`` (tests pass a fixed
-            value so the map is fully deterministic).
+        now: Explicit override for ``GENERATION_TIMESTAMP``. Omitted, the
+            stamp comes from the committed ``paper.date``; the wall clock is
+            never read, so the map is deterministic on any day.
 
     Returns:
         Mapping of token name to rendered string value.
@@ -176,7 +222,7 @@ def generate_variables(
         reaction_time_h=reaction_h,
     )
 
-    stamp = (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
+    stamp = generation_timestamp(paper, now)
     return {
         "MISSION_IDENTITY": str(paper.get("title", "thunderball")),
         "MISSION_CODENAME": str(mission.get("codename", "DISCO VOLANTE")),

@@ -65,11 +65,17 @@ The rules that follow from that:
 | `test_manuscript_variables.py` | Token computation, config error paths, agreement with the domain core, the live token cross-reference gate, and a non-vacuity check on that gate |
 | `test_figures.py` | Figure generation writes valid PNGs; the convoy rosette actually varies with the screen it is given; the drift figure's default duration comes from the dive math |
 | `test_scripts_smoke.py` | Subprocess runs of every thin CLI, plus a probe that importing the pure core does not pull `bond_api` into `sys.modules` |
+| `test_regeneration_determinism.py` | Two full runs of the real hydration CLI, more than a clock tick apart with no clock override, compared byte for byte; plus the committed-date derivation of `GENERATION_TIMESTAMP` and its error paths |
 
 ## Determinism
 
 * Fixed inputs everywhere; no untracked RNG; seed 7 recorded in provenance.
 * Manuscript tokens are compared with a fixed `now` for `GENERATION_TIMESTAMP`.
+* The byte-identical claim is bound by a real double regeneration: the
+  hydration CLI is run twice, more than a clock tick apart, with no clock
+  override, and every written byte is compared
+  (`test_regeneration_determinism.py`). A test that injects a fixed clock
+  cannot catch a wall clock on the default path; this one can.
 * `execute()` results are asserted equal across two runs.
 * Geometry is verified by round-trip: the steered ground velocity actually
   makes good the track; `speed_for_range` is fed back through `range_nm`.

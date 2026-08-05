@@ -4,7 +4,10 @@ Thin orchestrator: computes the ``{{TOKEN}} -> value`` map via
 :func:`thunderball.manuscript_variables.generate_variables`, writes it to
 ``output/data/manuscript_variables.json``, and renders the concept figures.
 Supports ``--allow-draft`` (unused fallback kept for CLI parity with the
-BOND suite convention) and ``--now`` to pin ``GENERATION_TIMESTAMP``.
+BOND suite convention) and ``--now`` to override ``GENERATION_TIMESTAMP``.
+
+Regeneration is byte-identical without any flag: the stamp defaults to the
+committed ``paper.date`` in ``manuscript/config.yaml``, not to the clock.
 """
 
 from __future__ import annotations
@@ -32,7 +35,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--now",
         default=None,
-        help="ISO timestamp override for GENERATION_TIMESTAMP (determinism)",
+        help=(
+            "ISO timestamp override for GENERATION_TIMESTAMP; the default "
+            "already comes from the committed paper.date, not the clock"
+        ),
     )
     args = parser.parse_args(argv)
 

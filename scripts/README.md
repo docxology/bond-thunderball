@@ -20,5 +20,6 @@ is already correct.
 Run from the package root (`uv run python scripts/<name>.py`).
 
 `z_generate_manuscript_variables.py` writes `output/data/manuscript_variables.json`
-and renders the concept figures; `--now` pins `GENERATION_TIMESTAMP` for
-byte-identical regeneration.
+and renders the concept figures. Regeneration is byte-identical with no flag —
+`GENERATION_TIMESTAMP` comes from the committed `paper.date`, not the clock —
+and `--now` exists only to pin a different value deliberately.

@@ -61,7 +61,7 @@ in prose.
 
 - Package version: {{MISSION_VERSION}}
 - Python: {{PYTHON_VERSION}}
-- Generated: {{GENERATION_TIMESTAMP}}
+- Manuscript date (from `config.yaml`, not the clock): {{GENERATION_TIMESTAMP}}
 
 The mission runs under a fixed seed ({{CONFIG_KEYWORDS}} include deterministic
 mission software); the six domain modules are pure functions of these
