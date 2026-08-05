@@ -14,6 +14,8 @@ package.
    scans `manuscript/[0-9]*.md` and fails if any `{{TOKEN}}` lacks a generated
    value. Reference/guide files (README.md, AGENTS.md, SYNTAX.md) legitimately
    contain literal `{{TOKEN}}` placeholders and are excluded from the scan.
+   The reverse direction matters too: a token generated but never referenced is
+   dead weight, so keep `generate_variables()` and the prose in step.
 4. Verify: read `output/data/manuscript_variables.json` after running
    `scripts/z_generate_manuscript_variables.py`.
 
@@ -25,6 +27,21 @@ five concept figures.
 
 ## Config
 
-`config.yaml` is the single source of truth for the dive / convoy /
-submersible parameters and the `paper:` metadata. `generate_variables()`
-reads it (with `--now` override for determinism).
+`config.yaml` is the single source of truth for all six domains' parameters
+(`recovery`, `screen`, `submersible`, `sonar`, `navigation`, `interdiction`)
+and the `paper:` metadata. `generate_variables()` reads it, with a `--now`
+override for determinism.
+
+Its `paper.subtitle` and `keywords` must describe what the package actually
+does; they feed `CONFIG_KEYWORDS`, which is rendered into the abstract, so a
+stale keyword list becomes a false statement in the manuscript.
+
+## Never hand-author a metric
+
+Not in prose, not in a caption, not in a table. If a number changes when the
+code changes, it is a token. This package once shipped a manuscript whose
+headline conclusion — that gas, not decompression, bound the dive — was
+inverted by a model defect; the numbers updated themselves when the model was
+fixed, but the surrounding *claim* had to be rewritten by hand. Prefer prose
+that states the comparison ("X binds before Y") over prose that restates a
+value the token already carries.

@@ -1,8 +1,9 @@
 # Introduction
 
-*Thunderball* (1965) is the film in which SPECTRE hijacks two NATO nuclear
-bombs and the operation reaches its climax in an underwater battle around the
-legendary submersible yacht, *Disco Volante*. The **DISCO VOLANTE** mission
+*Thunderball* (1965), adapted from Fleming's 1961 novel [@fleming1961], is the
+film in which SPECTRE hijacks two NATO nuclear bombs and the operation reaches
+its climax in an underwater battle around the legendary submersible yacht,
+*Disco Volante*. The **DISCO VOLANTE** mission
 software package implements the quantitative planning problems that underwrite
 such a recovery: how deep and how long a diver can work, whether the escort
 screen protecting the high-value asset holds, how far the submersible
@@ -31,6 +32,13 @@ protocol, so the *orchestrator* can discover and drive the mission
 deterministically. The domain modules themselves are standalone and never
 import infrastructure.
 
+Two further modules support the manuscript itself rather than the mission:
+`src/thunderball/manuscript_variables.py` computes every substituted token in
+this document from `manuscript/config.yaml` plus the same domain calls the
+mission makes, and `src/thunderball/figures.py` renders the five concept
+figures. No numeric result in this prose is hand-authored.
+
 This manuscript documents the mathematical models (@sec:methodology), the
-computed results (@sec:results), and the reproducibility guarantees
-(@sec:reproducibility) of the mission software.
+computed results (@sec:results), the experimental parameters (@sec:setup), the
+reproducibility guarantees (@sec:reproducibility), and the scope boundary
+(@sec:scope) of the mission software.

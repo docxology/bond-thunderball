@@ -7,10 +7,18 @@ the Bühlmann ZH-L16A model reports a no-decompression limit of
 **{{RESULT_NDL_MINUTES}} minutes**. The configured cylinder
 ({{CONFIG_CYLINDER_CAPACITY_L}} L at {{CONFIG_FILL_PRESSURE_BAR}} bar) and SAC
 rate ({{CONFIG_SAC_LMIN}} L/min) yield an air-duration limit of
-**{{RESULT_AIR_DURATION_MIN}} minutes** — the binding constraint, indicating
-that gas volume, not decompression, governs the working bottom time.
+**{{RESULT_AIR_DURATION_MIN}} minutes**. Decompression therefore binds first:
+`plan_dive` reports a binding constraint of
+**{{RESULT_DIVE_BINDING_CONSTRAINT}}** and a planned bottom time of
+**{{RESULT_DIVE_BOTTOM_MIN}} minutes**, with
+{{RESULT_DIVE_DECO_STOPS}} decompression stops — flying exactly the
+no-decompression limit is by definition a no-stop dive. The dive consumes
+**{{RESULT_DIVE_GAS_REQUIRED_L}} L** of the cylinder's free gas, leaving a
+margin of **{{RESULT_DIVE_GAS_MARGIN_L}} L**: the recovery team surfaces on its
+decompression obligation with gas to spare, which is the correct way round for
+a working dive at this depth.
 
-![Bühlmann ZH-L16A no-decompression limit versus depth.](figures/ndl_curve.png){#fig:ndl}
+![Bühlmann ZH-L16A no-decompression limit versus depth, evaluated against the surface ascent ceiling.](figures/ndl_curve.png){#fig:ndl}
 
 ## Convoy integrity results
 
@@ -22,7 +30,7 @@ coverage is **{{RESULT_COVERAGE}}**, and the resulting integrity score is
 {{CONFIG_COVERAGE_TARGET}} coverage target a uniform screen needs at least
 **{{RESULT_MIN_ESCORTS_90PCT}} escorts**.
 
-![Polar escort-screen coverage for the configured detection half-angle.](figures/convoy_screen.png){#fig:convoy}
+![Polar coverage rosette for the configured screen: each of 360 sample bearings tested against the actual escort set, with the escorts marked on the rim.](figures/convoy_screen.png){#fig:convoy}
 
 ## Submersible logistics results
 
@@ -54,7 +62,7 @@ dive's bottom time the current sweeps the team **{{RESULT_NAV_DRIFT_NM}}
 nautical miles** — {{RESULT_NAV_WITHIN_RECOVERY}} within the
 {{CONFIG_RECOVERY_RADIUS_NM}}-nautical-mile recovery radius (@fig:drift).
 
-![Set-and-drift geometry over the dive bottom time.](figures/drift_geometry.png){#fig:drift}
+![Set-and-drift geometry over the gas-limited bottom time, computed from the dive parameters rather than pinned to a literal.](figures/drift_geometry.png){#fig:drift}
 
 ## Interdiction results
 

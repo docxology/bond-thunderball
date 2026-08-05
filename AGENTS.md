@@ -2,84 +2,108 @@
 
 **Important:** this is a BOND film package (`projects/working/bond/thunderball/`).
 It is a **local-only** working tree — never push, never touch sibling packages.
-Scope your edits to this directory only; commit path-scoped within this
+Scope your edits to this directory only, and commit path-scoped within this
 package's own git repo.
 
 ## Mission
 
 Special-agent mission software for the *Thunderball* (1965) underwater
-nuclear-recovery operation, mission codename **DISCO VOLANTE**. Six pure
-domain capabilities:
+nuclear-recovery operation, mission codename **DISCO VOLANTE**. Six pure domain
+capabilities:
 
 1. **Dive planning** (`dive_planner.py`) — air budget and Bühlmann ZH-L16A
-   decompression (16 compartments, M-value ascent control, deco stops).
+   decompression: 16 compartments, the M-value line `M(P) = P/b + a`, the
+   no-decompression limit taken against the *surface* ascent ceiling, a bounded
+   deco schedule, and `plan_dive` for the assembled plan and gas budget.
 2. **Convoy integrity** (`convoy_integrity.py`) — escort-screen gap detection,
-   coverage fraction, integrity score/status.
-3. **Submersible logistics** (`submersible_logistics.py`) — cubic drag +
-   hotel-load power, endurance, range, optimal cruise, mission energy.
+   pointwise and aggregate coverage, integrity score/status with a hard sector
+   ceiling, minimum uniform screen size.
+3. **Submersible logistics** (`submersible_logistics.py`) — cubic drag plus
+   hotel-load power, endurance, range, analytic optimal cruise, range inverse.
 4. **Passive sonar** (`sonar_detection.py`) — Thorp absorption, transmission
    loss, signal excess, detection range.
 5. **Set-and-drift navigation** (`current_navigation.py`) — dead reckoning,
    course to steer, cross-track error, drift limits.
-6. **Convoy interdiction** (`interdiction_analysis.py`) — CPA geometry,
-   screen penetration time, interdiction status.
+6. **Convoy interdiction** (`interdiction_analysis.py`) — CPA geometry, screen
+   penetration time, interdiction status.
+
+Plus `manuscript_variables.py` (53 computed manuscript tokens) and `figures.py`
+(five concept figures).
 
 ## Layer contract
 
 | Surface | Rule |
 |---|---|
-| `src/thunderball/dive_planner.py`, `convoy_integrity.py`, `submersible_logistics.py`, `sonar_detection.py`, `current_navigation.py`, `interdiction_analysis.py` | Pure domain math — stdlib only; **no** `infrastructure.*`, **no** `bond_api` imports |
-| `src/thunderball/mission.py` | Thin adapter; the only module that imports `bond_api` |
-| `src/thunderball/manuscript_variables.py`, `figures.py` | Orchestration; may import domain + yaml/matplotlib |
-| `scripts/` | Thin CLIs; sys.path bootstrap + delegation only |
-| `tests/` | Real computation + real protocol types; **no mocks** |
+| `dive_planner.py`, `convoy_integrity.py`, `submersible_logistics.py`, `sonar_detection.py`, `current_navigation.py`, `interdiction_analysis.py` | Pure domain math — stdlib only; **no** `infrastructure.*`, **no** `bond_api` |
+| `mission.py` | Thin adapter; the only module importing `bond_api`; contains no math of its own |
+| `manuscript_variables.py`, `figures.py` | Orchestration; may import the domain core plus yaml/matplotlib |
+| `scripts/` | Thin CLIs: argv shaping and delegation only; no math, no `sys.path` manipulation |
+| `tests/` | Real computation and real protocol types; **no mocks** |
 
 ## Guardrails
 
 - **No mocks** anywhere in `tests/` (no `unittest.mock` / `MagicMock` /
-  `@patch`). Real data + computation only.
-- **Deterministic**: fixed seed, no untracked RNG, no wall-clock in results
-  (`GENERATION_TIMESTAMP` is the only timestamp and is overridable via
-  `--now`).
-- **Coverage ≥ 90%** line+branch on `src/`:
-  `uv run pytest tests/ --cov=src --cov-fail-under=90`
-- **Lint/type**: `ruff check` + `ruff format` + `mypy` clean on `src/` and
-  `scripts/`.
-- **Protocol**: implement the frozen `bond_api` `MissionProvider` exactly
-  (`src/thunderball/mission.py`, class name `MissionProvider`);
-  `src/thunderball/mission.py` is the discovery entry point for the slug
-  `thunderball`. Keep the public shape (`MissionProvider`, `PROVIDER`,
-  `GADGETS`, `_register_film_gadgets`) stable — downstream fleet tools
-  consume them.
-- **Domain purity**: the concept modules must remain importable without
-  `bond-api` (fallback if the path dependency is ever unavailable). Only
-  `mission.py` and the package facade depend on it.
+  `@patch` / `create_autospec`).
+- **Deterministic**: fixed seed 7, no untracked RNG, no wall-clock in results.
+  `GENERATION_TIMESTAMP` is the only timestamp and is overridable via `--now`.
+- **Coverage ≥ 90%** line + branch on `src/`.
+- **Lint/type**: `ruff check`, `ruff format`, and `mypy` clean on `src/`,
+  `scripts/`, and `tests/`.
+- **Protocol frozen**: keep `MissionProvider`, `PROVIDER`, `GADGETS`, and
+  `_register_film_gadgets` stable in name and signature — bond-cli, the
+  coordinator reconcile, and the orchestrator consume them across packages.
+  Adding a key to `execute()`'s `results` dict is additive and safe.
+- **Domain purity**: the six concept modules stay importable without
+  `bond_api`; a subprocess probe in `tests/test_scripts_smoke.py` enforces it.
+- **One copy of every formula**: `mission.execute()` and
+  `generate_variables()` both route the dive numbers through `plan_dive`, so
+  the manuscript cannot drift from the mission. Do not re-derive a domain
+  quantity in an adapter.
 
-## Manuscript protocol
-
-Manuscript `{{TOKEN}}`s are computed by `src/thunderball/manuscript_variables.py`
-from `manuscript/config.yaml` and the domain math — never hand-authored in
-prose. Add tokens in `generate_variables()` and update the live cross-reference
-test `tests/test_manuscript_variables.py::test_all_manuscript_tokens_are_generated`.
-Figures are generated by `src/thunderball/figures.py` into `output/figures/`.
-
-## Working in this tree
-
-1. Read `docs/agent_instructions.md`, `docs/architecture.md`,
-   `docs/testing_philosophy.md` before modifying source.
-2. Edit domain core → mission adapter → scripts → manuscript → docs.
-3. Run the verification commands below, then commit path-scoped.
-
-## Verification
+## Build, test, verify
 
 ```bash
+# Install (binds the bond-api path dependency, installs this package editable)
+uv sync --extra dev
+
+# Gate
 uv run pytest tests/ --cov=src --cov-fail-under=90 -q
-grep -r "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
+
+# Guardrail greps
+grep -rn "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
 grep -rnE "^(from|import) infrastructure" src/thunderball/ || echo Clean
-grep -rnE "^(from|import) bond_api" src/thunderball/ | grep -v "mission.py" || echo "Clean — only mission.py imports bond_api"
+grep -rnE "^(from|import) bond_api" src/thunderball/ | grep -v "mission.py" \
+  || echo "Clean — only mission.py imports bond_api"
+
+# Lint and types
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
+
+# Regenerate manuscript tokens + figures deterministically
+uv run python scripts/z_generate_manuscript_variables.py --now 2026-01-01T00:00:00+00:00
+
+# Run the mission end to end
+uv run python scripts/run_mission.py
 ```
 
-Coverage + test counts: [`docs/_generated/COUNTS.md`](docs/_generated/COUNTS.md).
+Measured counts and coverage from the last run:
+[`docs/_generated/COUNTS.md`](docs/_generated/COUNTS.md). Regenerate that file
+after any test change; do not quote a coverage number anywhere else.
+
+## Manuscript protocol
+
+Manuscript tokens are computed by `src/thunderball/manuscript_variables.py`
+from `manuscript/config.yaml` and the domain math — never hand-authored in
+prose. Add a token in `generate_variables()` **and** reference it in a numbered
+section: `tests/test_manuscript_variables.py` checks the cross-reference, and
+an orphan token fails as surely as a missing one. Figures are generated by
+`src/thunderball/figures.py` into `output/figures/`.
+
+## Working in this tree
+
+1. Read `docs/agent_instructions.md`, `docs/architecture.md`, and
+   `docs/testing_philosophy.md` before modifying source.
+2. Edit domain core → mission adapter → scripts → manuscript → docs.
+3. Run the verification block above, regenerate `docs/_generated/COUNTS.md`
+   from what you measured, then commit path-scoped.

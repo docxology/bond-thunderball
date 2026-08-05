@@ -60,3 +60,38 @@ def test_render_all_figures_returns_five_paths(tmp_path) -> None:
     assert len(paths) == 5
     for path in paths:
         assert os.path.exists(path)
+
+
+def test_convoy_screen_figure_depends_on_the_bearings_it_is_given(tmp_path) -> None:
+    """Regression: the polar plot once sampled coverage_fraction() one bearing
+    at a time, which is constant for any single escort — so the rendered image
+    was identical for every screen. Different screens must render differently.
+    """
+    dense = plot_convoy_screen(
+        (0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0),
+        30.0,
+        figures_out=str(tmp_path / "dense"),
+    )
+    sparse = plot_convoy_screen(
+        (0.0, 180.0), 30.0, figures_out=str(tmp_path / "sparse")
+    )
+    assert Path(dense).read_bytes() != Path(sparse).read_bytes()
+
+
+def test_drift_geometry_duration_defaults_to_the_domain_bottom_time(
+    tmp_path,
+) -> None:
+    """The default duration must come from the dive math, not a literal."""
+    from thunderball.dive_planner import bottom_time_from_air
+    from thunderball.figures import FLAGSHIP_DIVE, _flagship_bottom_hours
+
+    capacity_l, fill_bar, sac_lmin, depth_m = FLAGSHIP_DIVE
+    expected = bottom_time_from_air(capacity_l * fill_bar, sac_lmin, depth_m) / 60.0
+    assert _flagship_bottom_hours() == expected
+    assert 0.3 < expected < 0.6
+    # The default path and the explicit path render the same figure.
+    default = plot_drift_geometry(figures_out=str(tmp_path / "default"))
+    explicit = plot_drift_geometry(
+        duration_h=expected, figures_out=str(tmp_path / "explicit")
+    )
+    assert Path(default).read_bytes() == Path(explicit).read_bytes()

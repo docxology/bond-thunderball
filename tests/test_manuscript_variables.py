@@ -141,3 +141,63 @@ def test_all_manuscript_tokens_are_generated() -> None:
 
 def test_config_relative_points_to_manuscript_config() -> None:
     assert CONFIG_RELATIVE == Path("manuscript") / "config.yaml"
+
+
+def test_load_mission_config_rejects_a_non_mapping_file(tmp_path) -> None:
+    """A YAML file that parses to a list must raise, and the docstring's
+    documented exception type must be the one actually raised."""
+    manuscript = tmp_path / "manuscript"
+    manuscript.mkdir()
+    (manuscript / "config.yaml").write_text("- not\n- a mapping\n", encoding="utf-8")
+    with pytest.raises(TypeError, match="must contain a mapping"):
+        load_mission_config(tmp_path)
+
+
+def test_load_mission_config_reports_a_missing_file(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_mission_config(tmp_path)
+
+
+def test_dive_tokens_agree_with_the_domain_core() -> None:
+    """The dive tokens must be plan_dive() output, not re-derived arithmetic."""
+    from thunderball.dive_planner import bottom_time_from_air, plan_dive
+
+    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+    config = load_mission_config(PROJECT_ROOT)["mission"]["recovery"]
+    dive = plan_dive(
+        depth_m=float(config["depth_m"]),
+        cylinder_capacity_l=float(config["cylinder_capacity_l"]),
+        fill_pressure_bar=float(config["fill_pressure_bar"]),
+        sac_rate_lmin=float(config["sac_rate_lmin"]),
+    )
+    assert float(variables["RESULT_NDL_MINUTES"]) == pytest.approx(
+        dive.ndl_minutes, abs=5e-3
+    )
+    assert float(variables["RESULT_DIVE_BOTTOM_MIN"]) == pytest.approx(
+        dive.bottom_minutes, abs=5e-3
+    )
+    assert variables["RESULT_DIVE_BINDING_CONSTRAINT"] == dive.binding_constraint()
+    assert float(variables["RESULT_AIR_DURATION_MIN"]) == pytest.approx(
+        bottom_time_from_air(
+            dive.air_volume_l,
+            float(config["sac_rate_lmin"]),
+            float(config["depth_m"]),
+        ),
+        abs=5e-3,
+    )
+    assert float(variables["RESULT_DIVE_GAS_MARGIN_L"]) > 0.0
+
+
+def test_manuscript_token_gate_actually_scans_something() -> None:
+    """Guard the guard: the cross-reference test is vacuous if no section file
+    is read or no token is found."""
+    import re
+
+    manuscript = PROJECT_ROOT / "manuscript"
+    sections = sorted(manuscript.glob("[0-9]*.md"))
+    assert len(sections) >= 9, [s.name for s in sections]
+    token_re = re.compile(r"\{\{([A-Z_][A-Z0-9_]*)\}\}")
+    found: set[str] = set()
+    for section in sections:
+        found.update(token_re.findall(section.read_text(encoding="utf-8")))
+    assert len(found) >= 30, sorted(found)

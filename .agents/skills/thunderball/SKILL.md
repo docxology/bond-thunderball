@@ -2,25 +2,26 @@
 name: thunderball
 description: Use when working inside the Thunderball (DISCO VOLANTE) BOND film package.
 version: 0.1.0
-tags: [bond, film, dive-planning, convoy-integrity, submersible-logistics]
+tags: [bond, film, dive-planning, convoy-integrity, submersible-logistics, passive-sonar, navigation, interdiction]
 ---
 
 # Thunderball — DISCO VOLANTE Mission Software
 
 BOND-suite film package for the 1965 *Thunderball* underwater nuclear-recovery
-operation. Three pure domain capabilities exposed through the frozen
-`bond_api` `MissionProvider` protocol.
+operation. Six pure domain capabilities exposed through the frozen `bond_api`
+`MissionProvider` protocol.
 
 ## When to use
 
-- Building/maintaining `projects/working/bond/thunderball/`.
-- Extending dive planning, convoy integrity, or submersible logistics.
+- Building or maintaining `projects/working/bond/thunderball/`.
+- Extending dive planning, convoy integrity, submersible logistics, passive
+  sonar, set-and-drift navigation, or convoy interdiction.
 
 ## Quick reference
 
 ```bash
 cd projects/working/bond/thunderball
-uv sync --extra dev                       # bind bond-api path dep
+uv sync --extra dev                       # bind bond-api path dep, install editable
 uv run pytest tests/ --cov=src --cov-fail-under=90
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
@@ -30,21 +31,33 @@ uv run python scripts/run_mission.py       # full five-stage mission
 
 ## Domain modules
 
-- `src/thunderball/dive_planner.py` — air budget + Bühlmann ZH-L16A deco.
-- `src/thunderball/convoy_integrity.py` — escort gaps, coverage, integrity score.
-- `src/thunderball/submersible_logistics.py` — power/endurance/range/optimal speed.
-- `src/thunderball/sonar_detection.py` — Thorp absorption, TL, signal excess, detection range.
-- `src/thunderball/current_navigation.py` — set-and-drift dead reckoning, course-to-steer, XTE.
-- `src/thunderball/interdiction_analysis.py` — CPA/TCPA geometry, penetration time, status.
+- `src/thunderball/dive_planner.py` — air budget, Bühlmann ZH-L16A deco, NDL
+  against the surface ascent ceiling, `plan_dive` for the assembled plan.
+- `src/thunderball/convoy_integrity.py` — escort gaps, pointwise and aggregate
+  coverage, integrity score with a hard sector ceiling.
+- `src/thunderball/submersible_logistics.py` — power, endurance, range, optimal
+  speed, range inverse.
+- `src/thunderball/sonar_detection.py` — Thorp absorption, TL, signal excess,
+  detection range.
+- `src/thunderball/current_navigation.py` — set-and-drift dead reckoning,
+  course-to-steer, cross-track error.
+- `src/thunderball/interdiction_analysis.py` — CPA/TCPA geometry, penetration
+  time, held/penetrated/breached status.
 
-`src/thunderball/mission.py` is the only `bond_api`-importing adapter (`MissionProvider`,
-slug `thunderball`). Domain modules are standalone.
+`src/thunderball/mission.py` is the only `bond_api`-importing adapter
+(`MissionProvider`, slug `thunderball`). Domain modules are standalone.
 
 ## Pitfalls
 
 - Run `uv sync --extra dev` after touching `pyproject.toml`; a fresh scaffold
   venv has no deps.
-- The deco planner bounds per-stop hold time; extreme dives legitimately cap.
-- Domain core must stay importable without `bond-api`.
-- Add manuscript tokens to `generate_variables()` and the live cross-ref test.
-- Scripts need `import _bootstrap  # noqa: E402` (deep monorepo path).
+- Keep the four frozen names stable: `MissionProvider`, `PROVIDER`, `GADGETS`,
+  `_register_film_gadgets`. Adding a `results` key is safe; renaming is not.
+- Domain core must stay importable without `bond-api` (subprocess-probed).
+- Do **not** add a `sys.path` bootstrap to `scripts/` — mypy cannot resolve a
+  bare sibling import and the gate fails. The editable install is what makes
+  `import thunderball` work.
+- Add manuscript tokens to `generate_variables()` **and** reference them in a
+  numbered section; the cross-reference is checked in both directions.
+- Never assert a formula against a restatement of itself. Anchor physical
+  claims to published values — see `docs/testing_philosophy.md`.

@@ -83,9 +83,16 @@ def optimal_range_speed(energy_kwh: float, drag_coeff: float, hotel_kw: float) -
     """Speed (knots) maximising range for the given energy and loads.
 
     Range ``R(v) = v * E / (k v^3 + H)``. The derivative vanishes when
-    ``k v^3 = H/2``, giving an analytic optimum. With no hotel load the range
-    is monotonically increasing to the speed ceiling, so we clamp to a
-    nominal soakable maximum.
+    ``k v^3 = H/2``, giving an analytic optimum that is independent of ``E``
+    (energy scales range, not the speed at which range peaks).
+
+    A strictly positive hotel load is required: with ``H = 0`` the range
+    ``E / (k v^2)`` decreases monotonically and has no interior optimum, so
+    there is nothing to return. Callers with no hotel load should pick a speed
+    from their own constraints instead.
+
+    Raises:
+        ValueError: If any argument is non-positive (including ``hotel_kw``).
     """
     _require_positive(energy_kwh, "energy_kwh")
     _require_positive(drag_coeff, "drag_coeff")

@@ -22,4 +22,24 @@ suite covers the dive planner, convoy integrity, submersible logistics,
 passive sonar, current navigation, convoy interdiction, the mission protocol
 adapter, manuscript-token hydration, figure generation, and subprocess smoke
 tests of the mission CLIs. All tests use real computation and real protocol
-types — there are no mocks.
+types — there are no mocks. Live counts are regenerated into
+`docs/_generated/COUNTS.md`; this manuscript quotes the gate, not a figure
+that would go stale.
+
+## External anchors
+
+Reproducing a number is not the same as it being right, so the constants that
+carry a physical claim are pinned against published values rather than against
+the implementation's own arithmetic:
+
+* Bühlmann surfacing ceilings — 3.27 bar for the fastest compartment, 1.28 bar
+  for the slowest [@buehlmann1984].
+* No-decompression limits at 18, 30, 40 and 60 m, asserted to fall inside the
+  published ZH-L16A air-table bands [@usnavydiving2016].
+* The analytic optimal-range speed, cross-checked against a dense numerical
+  sweep of the range curve.
+* The pointwise coverage predicate, cross-checked against the aggregate
+  coverage fraction over a 3600-sample sweep of the compass.
+
+A test that only restates the formula under test cannot catch a transposed
+formula. These anchors can.

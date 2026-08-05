@@ -118,3 +118,59 @@ def test_min_escorts_unreachable_raises() -> None:
     # A half-angle so small the target is unreachable within the cap.
     with pytest.raises(ValueError):
         min_escorts_for_coverage(1.0, 0.1, max_escorts=8)
+
+
+def test_is_bearing_covered_respects_the_arc_and_the_seam() -> None:
+    from thunderball.convoy_integrity import is_bearing_covered
+
+    screen = (0.0, 90.0)
+    # Inside compartment 0's +/-30 deg arc, including across the 0/360 seam.
+    assert is_bearing_covered(0.0, screen, 30.0)
+    assert is_bearing_covered(29.9, screen, 30.0)
+    assert is_bearing_covered(350.0, screen, 30.0)
+    assert is_bearing_covered(330.0, screen, 30.0)
+    # Outside every arc.
+    assert not is_bearing_covered(45.0, screen, 30.0)
+    assert not is_bearing_covered(180.0, screen, 30.0)
+    # Boundary is inclusive.
+    assert is_bearing_covered(30.0, screen, 30.0)
+    assert not is_bearing_covered(30.001, screen, 30.0)
+
+
+def test_is_bearing_covered_agrees_with_coverage_fraction() -> None:
+    """Sweeping the pointwise predicate must reproduce the aggregate fraction."""
+    from thunderball.convoy_integrity import is_bearing_covered
+
+    screen = (0.0, 45.0, 90.0, 200.0)
+    samples = [i * 0.1 for i in range(3600)]
+    hits = sum(1 for t in samples if is_bearing_covered(t, screen, 25.0))
+    assert hits / len(samples) == pytest.approx(
+        coverage_fraction(screen, 25.0), abs=2e-3
+    )
+
+
+def test_is_bearing_covered_on_an_empty_screen() -> None:
+    from thunderball.convoy_integrity import is_bearing_covered
+
+    assert not is_bearing_covered(10.0, (), 30.0)
+
+
+def test_marginal_ceiling_downgrades_an_otherwise_ok_screen() -> None:
+    """The sector ceiling must actually change the verdict, not just the text."""
+    screen = (0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0)
+    default = assess_convoy(screen, 30.0)
+    assert default.largest_gap_deg == pytest.approx(45.0)
+    assert default.status.label == "ok"
+    # A ceiling below the actual 45 deg gap must downgrade the same screen.
+    strict = assess_convoy(screen, 30.0, marginal_under_deg=40.0)
+    assert strict.status.label == "marginal"
+    assert "reaches" in strict.status.detail
+    # The continuous score is untouched — only the categorical verdict moves.
+    assert strict.score == pytest.approx(default.score)
+
+
+def test_marginal_ceiling_can_only_downgrade_never_upgrade() -> None:
+    """A wide ceiling must not rescue a screen the score already condemned."""
+    breached = assess_convoy((0.0, 10.0), 30.0, marginal_under_deg=1000.0)
+    assert breached.status.label == "breached"
+    assert breached.largest_gap_deg == pytest.approx(350.0)

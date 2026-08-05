@@ -25,9 +25,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .convoy_integrity import coverage_fraction
+from .convoy_integrity import coverage_fraction, is_bearing_covered
 from .current_navigation import drift_vector
-from .dive_planner import BuhlmannModel, compute_ndl
+from .dive_planner import BuhlmannModel, bottom_time_from_air, compute_ndl
 from .sonar_detection import transmission_loss
 from .submersible_logistics import range_nm
 
@@ -43,10 +43,20 @@ __all__ = [
 #: Output directory for figures, relative to the package root.
 FIGURES_OUT = "output/figures"
 
+#: Flagship recovery-dive parameters used for figure defaults (cylinder litres,
+#: fill bar, SAC L/min, working depth m). Mirrors ``manuscript/config.yaml``.
+FLAGSHIP_DIVE = (12.0, 207.0, 20.0, 40.0)
+
 
 def _out_path(figures_out: str, name: str) -> str:
     os.makedirs(figures_out, exist_ok=True)
     return os.path.join(figures_out, name)
+
+
+def _flagship_bottom_hours() -> float:
+    """Gas-limited bottom time (hours) of the flagship recovery profile."""
+    capacity_l, fill_bar, sac_lmin, depth_m = FLAGSHIP_DIVE
+    return bottom_time_from_air(capacity_l * fill_bar, sac_lmin, depth_m) / 60.0
 
 
 def plot_ndl_curve(
@@ -75,20 +85,45 @@ def plot_convoy_screen(
     half_angle_deg: float = 30.0,
     figures_out: str = FIGURES_OUT,
 ) -> str:
-    """Render a polar escort-screen coverage plot for a set of bearing angles."""
+    """Render a polar escort-screen coverage rosette for a set of bearings.
+
+    Each of 360 sample bearings is tested against the *actual* screen with
+    :func:`~thunderball.convoy_integrity.is_bearing_covered`, so the filled
+    lobes are the sectors these escorts really watch and the notches are the
+    real uncovered gaps. Escort bearings are marked on the rim.
+    """
     fig, ax = plt.subplots(figsize=(5.0, 5.0), subplot_kw={"projection": "polar"})
-    theta = np.deg2rad(np.linspace(0.0, 360.0, 360))
+    samples = np.linspace(0.0, 360.0, 360, endpoint=False)
     radii = np.array(
         [
-            coverage_fraction((float(t),), half_angle_deg)
-            for t in np.linspace(0, 360, 360)
+            1.0 if is_bearing_covered(float(t), bearings, half_angle_deg) else 0.0
+            for t in samples
         ]
     )
-    ax.plot(theta, radii, color="#b45309", linewidth=2.0)
-    ax.fill(theta, radii, color="#b45309", alpha=0.25)
+    # Close the ring: repeat the first sample at 360 deg so the filled lobe has
+    # no cosmetic notch at the 0/360 seam.
+    samples = np.append(samples, 360.0)
+    radii = np.append(radii, radii[0])
+    theta = np.deg2rad(samples)
+    coverage = coverage_fraction(bearings, half_angle_deg)
+    ax.fill_between(theta, 0.0, radii, color="#b45309", alpha=0.30, step="mid")
+    ax.plot(theta, radii, color="#b45309", linewidth=1.6, drawstyle="steps-mid")
+    ax.plot(
+        np.deg2rad(np.asarray(bearings, dtype=float)),
+        np.ones(len(bearings)),
+        "o",
+        color="#1e3a8a",
+        markersize=5.0,
+        label="escorts",
+    )
+    ax.set_ylim(0.0, 1.15)
+    ax.set_yticks([])
     ax.set_theta_zero_location("N")  # type: ignore[attr-defined]
     ax.set_theta_direction(-1)  # type: ignore[attr-defined]
-    ax.set_title(f"Escort screen coverage (half-angle {half_angle_deg:.0f}°)")
+    ax.set_title(
+        f"Escort screen coverage: {coverage * 100:.0f}% of the perimeter\n"
+        f"({len(bearings)} escorts, half-angle {half_angle_deg:.0f}°)"
+    )
     fig.tight_layout()
     path = _out_path(figures_out, "convoy_screen.png")
     fig.savefig(path, dpi=150)
@@ -162,18 +197,21 @@ def plot_transmission_loss(
 def plot_drift_geometry(
     set_deg: float = 90.0,
     drift_knots: float = 0.8,
-    duration_h: float = 0.41,
+    duration_h: float | None = None,
     figures_out: str = FIGURES_OUT,
 ) -> str:
-    """Render the set-and-drift geometry: the current vector sweeping the
-    dive site and the resulting drift distance over the bottom time."""
+    """Render the set-and-drift geometry over the dive's bottom time.
+
+    ``duration_h`` defaults to the gas-limited bottom time of the flagship
+    recovery profile, computed from the domain core rather than pinned to a
+    literal, so the figure moves when the dive parameters move.
+    """
+    if duration_h is None:
+        duration_h = _flagship_bottom_hours()
     cur_e, cur_n = drift_vector(set_deg, drift_knots)
-    drift = drift_knots * duration_h
-    rad = np.deg2rad(set_deg % 360.0)
-    arrow_e = drift * float(np.sin(rad))
-    arrow_n = drift * float(np.cos(rad))
-    assert abs(arrow_e - cur_e * duration_h) < 1e-9
-    assert abs(arrow_n - cur_n * duration_h) < 1e-9
+    arrow_e = cur_e * duration_h
+    arrow_n = cur_n * duration_h
+    drift = float(np.hypot(arrow_e, arrow_n))
 
     fig, ax = plt.subplots(figsize=(5.6, 5.6))
     ax.arrow(

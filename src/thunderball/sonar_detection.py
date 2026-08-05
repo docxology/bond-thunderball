@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 __all__ = [
     "SonarResult",
+    "assess_detection",
     "detection_range_nm",
     "detection_verdict",
     "signal_excess",

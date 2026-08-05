@@ -31,6 +31,7 @@ __all__ = [
     "compute_ndl",
     "cylinder_gas_volume",
     "plan_decompression",
+    "plan_dive",
     "tissue_pressure_after",
 ]
 
@@ -56,7 +57,19 @@ class DecoStop:
 
 @dataclass(frozen=True)
 class DivePlan:
-    """The planned dive: air budget, NDL, and the decompression schedule."""
+    """The planned dive: air budget, NDL, and the decompression schedule.
+
+    Attributes:
+        depth_m: Working depth (metres).
+        bottom_minutes: Planned bottom time — the binding limit of air and NDL.
+        air_volume_l: Free gas volume available in the cylinder (litres at
+            surface pressure).
+        sac_rate_lmin: Surface air consumption rate (L/min).
+        ndl_minutes: No-decompression limit at ``depth_m``.
+        deco_stops: Decompression schedule for the flown profile, deepest first.
+        within_air: ``True`` when the gas budget was not the binding limit.
+        within_ndl: ``True`` when decompression was not the binding limit.
+    """
 
     depth_m: float
     bottom_minutes: float
@@ -67,12 +80,43 @@ class DivePlan:
     within_air: bool = True
     within_ndl: bool = True
 
+    def bottom_gas_required_l(self) -> float:
+        """Gas consumed on the bottom (litres): ``SAC * P_amb(depth) * time``."""
+        return self.sac_rate_lmin * ambient_pressure(self.depth_m) * self.bottom_minutes
+
     def total_gas_required_l(self) -> float:
-        """Cylinder gas needed for descent, bottom, and any deco stops (SAC basis)."""
-        total = self.air_volume_l + sum(
-            stop.minutes * self.sac_rate_lmin for stop in self.deco_stops
+        """Gas needed for the bottom phase plus every decompression stop (litres).
+
+        Each stop is charged at its own ambient pressure — a 6 m hold costs
+        roughly 1.6x the surface SAC volume, not 1x — so the total is a real
+        gas budget rather than a surface-rate approximation.
+        """
+        deco = sum(
+            self.sac_rate_lmin * ambient_pressure(stop.depth_m) * stop.minutes
+            for stop in self.deco_stops
         )
-        return total
+        return self.bottom_gas_required_l() + deco
+
+    def gas_margin_l(self) -> float:
+        """Cylinder gas left over after the planned dive (negative if short)."""
+        return self.air_volume_l - self.total_gas_required_l()
+
+    def binding_constraint(self) -> str:
+        """Which limit actually bounds the dive: ``air``, ``deco``, or ``none``.
+
+        ``none`` means the planned bottom time was shorter than both limits —
+        the diver surfaced on the plan, not on a constraint.
+        """
+        if not self.within_air:
+            return "air"
+        if not self.within_ndl:
+            return "deco"
+        air_minutes = bottom_time_from_air(
+            self.air_volume_l, self.sac_rate_lmin, self.depth_m
+        )
+        if self.bottom_minutes >= min(air_minutes, self.ndl_minutes):
+            return "air" if air_minutes <= self.ndl_minutes else "deco"
+        return "none"
 
 
 def ambient_pressure(
@@ -127,11 +171,24 @@ def bottom_time_from_air(
 
 
 def buhlmann_mvalue(p_amb: float, a: float, b: float) -> float:
-    """Bühlmann tolerated tissue pressure for ambient pressure ``p_amb``.
+    """Bühlmann tolerated tissue tension (bar) at ambient pressure ``p_amb``.
 
-    The M-value line: max tolerated inert-gas tissue tension ``M = a*P + b``.
+    Bühlmann states the constraint as a tolerated *ambient* pressure,
+    ``P_amb_tol = (P_tissue - a) * b``. Inverted for the tolerated tissue
+    tension at a given ambient pressure, the M-value line is
+
+    ``M(P) = P / b + a``
+
+    with ``a`` the surfacing intercept and ``1/b`` the slope. This is *not*
+    ``a*P + b``: transposing the two coefficients collapses the fast
+    compartments' surfacing limits — compartment 1 tolerates 3.27 bar at the
+    surface, not 1.78 bar — which in turn inflates every no-stop limit.
+
+    Raises:
+        ValueError: If ``b`` is not positive.
     """
-    return a * p_amb + b
+    _require_positive(b, "b")
+    return p_amb / b + a
 
 
 def tissue_pressure_after(
@@ -224,10 +281,20 @@ class BuhlmannModel:
         """Inert-gas tissue pressure of a fully saturated diver at the surface."""
         return alveolar_pressure(surface_pressure, self.f_n2, self.water_vapour)
 
-    def _tone_after_dive(
-        self, profile: list[tuple[float, float]], surface_pressure: float
+    def tissue_pressures_after_profile(
+        self,
+        profile: list[tuple[float, float]],
+        surface_pressure: float = STANDARD_SURFACE_PRESSURE,
     ) -> list[float]:
-        """Simulate inert-gas loading across a ``(depth_m, minutes)`` profile."""
+        """Inert-gas tissue pressures after a ``(depth_m, minutes)`` profile.
+
+        Args:
+            profile: Ordered ``(depth_m, minutes)`` holds as executed.
+            surface_pressure: Ambient surface pressure (bar).
+
+        Returns:
+            One inert-gas pressure (bar) per compartment, in compartment order.
+        """
         tissues = [self.initial_tissue_pressure(surface_pressure)] * len(self.half_time)
         for depth_m, minutes in profile:
             p_amb = ambient_pressure(depth_m, surface_pressure)
@@ -243,13 +310,29 @@ class BuhlmannModel:
     ) -> float:
         """No-decompression limit: max bottom time at ``depth_m`` with no deco stop.
 
-        Returns ``0.0`` if the depth is already beyond its no-stop limit
-        (a stop is required immediately). Binary search on bottom minutes.
+        "No-decompression" means a *direct ascent to the surface* stays legal,
+        so every compartment is tested against its M-value at the **surface**
+        ambient pressure — the ceiling the diver must clear on the way up — not
+        against the M-value at depth. Testing at depth is the classic error: at
+        40 m the ambient pressure is five times the surface value, so every
+        M-value is inflated with it and almost no bottom time is ever rejected.
+
+        Returns ``0.0`` if the depth is already beyond its no-stop limit — a
+        stop is obligatory on arrival, before any bottom time accrues. The
+        stock ZH-L16A table never trips this at any depth (its lowest surfacing
+        ceiling, 1.28 bar in compartment 16, still exceeds the 0.75 bar of a
+        surface-saturated diver), so the guard exists for subclasses that
+        override ``a_coeff``/``b_coeff`` with a stricter table.
+
+        The limit is located by 60 rounds of bisection on bottom minutes over
+        ``[0, 600]``, so the result is deterministic to well under a second.
         """
         _require_positive(depth_m, "depth_m")
         p_amb = ambient_pressure(depth_m, surface_pressure)
+        # The ascent ceiling: what each compartment may hold on surfacing.
         mvalues = [
-            buhlmann_mvalue(p_amb, a, b) for a, b in zip(self.a_coeff, self.b_coeff)
+            buhlmann_mvalue(surface_pressure, a, b)
+            for a, b in zip(self.a_coeff, self.b_coeff)
         ]
         initial = self.initial_tissue_pressure(surface_pressure)
         p_alv = alveolar_pressure(p_amb, self.f_n2, self.water_vapour)
@@ -317,7 +400,7 @@ def plan_decompression(
     model = model or BuhlmannModel()
     # Tissues loaded at the deepest/bottom of the profile.
     max_depth = max(d for d, _ in profile)
-    tissues = model._tone_after_dive(list(profile), surface_pressure)
+    tissues = model.tissue_pressures_after_profile(list(profile), surface_pressure)
 
     stops: list[DecoStop] = []
     current_depth = max_depth
@@ -361,3 +444,75 @@ def plan_decompression(
         current_depth = next_depth
 
     return tuple(stops)
+
+
+def plan_dive(
+    depth_m: float,
+    cylinder_capacity_l: float,
+    fill_pressure_bar: float,
+    sac_rate_lmin: float,
+    requested_bottom_minutes: float | None = None,
+    reserve_fraction: float = 0.0,
+    model: BuhlmannModel | None = None,
+    surface_pressure: float = STANDARD_SURFACE_PRESSURE,
+) -> DivePlan:
+    """Assemble the full :class:`DivePlan` for a single-depth recovery dive.
+
+    This is the single place the air budget and the ZH-L16A model are
+    combined, so the mission adapter and the manuscript token generator cannot
+    drift apart by re-deriving ambient pressure or the gas budget by hand.
+
+    With no ``requested_bottom_minutes`` the planner flies the longest safe
+    dive: ``min(air_limit, ndl)``. Both ``within_air`` and ``within_ndl`` are
+    then necessarily ``True`` — use :meth:`DivePlan.binding_constraint` to see
+    *which* limit bound. Passing an explicit request makes those flags
+    load-bearing: a request longer than either limit clears the corresponding
+    flag, and the decompression schedule is planned for the requested (unsafe)
+    profile so the caller can see the obligation it incurs.
+
+    Args:
+        depth_m: Working depth (metres).
+        cylinder_capacity_l: Cylinder water capacity (litres).
+        fill_pressure_bar: Cylinder fill pressure (bar).
+        sac_rate_lmin: Surface air consumption rate (L/min).
+        requested_bottom_minutes: Bottom time the diver intends to fly. When
+            ``None`` (default) the planner uses ``min(air_limit, ndl)``.
+        reserve_fraction: Gas fraction held back as reserve, in ``[0, 1)``.
+        model: Decompression model (default ZH-L16A).
+        surface_pressure: Ambient surface pressure (bar).
+
+    Returns:
+        A :class:`DivePlan` for the flown profile, with the decompression
+        schedule the profile actually requires.
+
+    Raises:
+        ValueError: If ``requested_bottom_minutes`` is negative, or any
+            positive-only parameter is non-positive.
+    """
+    model = model or BuhlmannModel()
+    gas_volume_l = cylinder_gas_volume(cylinder_capacity_l, fill_pressure_bar)
+    air_minutes = bottom_time_from_air(
+        gas_volume_l, sac_rate_lmin, depth_m, reserve_fraction=reserve_fraction
+    )
+    ndl = model.ndl_minutes(depth_m, surface_pressure=surface_pressure)
+    if requested_bottom_minutes is None:
+        bottom_minutes = min(air_minutes, ndl)
+    elif requested_bottom_minutes < 0.0:
+        raise ValueError("requested_bottom_minutes must be >= 0")
+    else:
+        bottom_minutes = requested_bottom_minutes
+    stops = plan_decompression(
+        [(depth_m, bottom_minutes)],
+        surface_pressure=surface_pressure,
+        model=model,
+    )
+    return DivePlan(
+        depth_m=depth_m,
+        bottom_minutes=bottom_minutes,
+        air_volume_l=gas_volume_l,
+        sac_rate_lmin=sac_rate_lmin,
+        ndl_minutes=ndl,
+        deco_stops=stops,
+        within_air=bottom_minutes <= air_minutes,
+        within_ndl=bottom_minutes <= ndl,
+    )

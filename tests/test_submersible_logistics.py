@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from thunderball.submersible_logistics import (
@@ -89,3 +91,51 @@ def test_range_profile_dataclass() -> None:
     )
     assert p.speed_knots == 5.0
     assert p.range_nm == 50.0
+
+
+def test_speed_for_range_with_no_hotel_load_uses_the_closed_form() -> None:
+    """With H = 0 the cubic degenerates and the root is sqrt(E / (R k))."""
+    from thunderball.submersible_logistics import speed_for_range
+
+    v = speed_for_range(100.0, 400.0, 0.035, hotel_kw=0.0)
+    assert v == pytest.approx(math.sqrt(400.0 / (100.0 * 0.035)))
+    # Round-trip: the returned speed really does deliver the requested range.
+    assert range_nm(400.0, v, 0.035, 0.0) == pytest.approx(100.0)
+
+
+def test_optimal_range_speed_requires_a_hotel_load() -> None:
+    """Without a hotel load range decreases monotonically — no interior
+    optimum exists, so the function must refuse rather than invent one."""
+    from thunderball.submersible_logistics import optimal_range_speed
+
+    with pytest.raises(ValueError, match="hotel_kw"):
+        optimal_range_speed(400.0, 0.035, 0.0)
+    # Confirm the premise: with H = 0, range really does fall with speed.
+    assert range_nm(400.0, 2.0, 0.035, 0.0) > range_nm(400.0, 8.0, 0.035, 0.0)
+
+
+def test_optimal_range_speed_is_the_true_maximum() -> None:
+    """External check: a dense sweep must not beat the analytic optimum."""
+    from thunderball.submersible_logistics import optimal_range_speed
+
+    v_opt = optimal_range_speed(400.0, 0.035, 2.0)
+    best = range_nm(400.0, v_opt, 0.035, 2.0)
+    for i in range(1, 400):
+        v = i * 0.05
+        assert range_nm(400.0, v, 0.035, 2.0) <= best + 1e-9
+
+
+def test_speed_for_range_at_the_exact_range_maximum() -> None:
+    """When the requested range is exactly the achievable maximum the cubic's
+    minimum touches zero and the single (double) root is that minimum."""
+    from thunderball.submersible_logistics import optimal_range_speed, speed_for_range
+
+    energy, drag, hotel = 400.0, 0.035, 2.0
+    v_best = optimal_range_speed(energy, drag, hotel)
+    r_max = range_nm(energy, v_best, drag, hotel)
+    v = speed_for_range(r_max, energy, drag, hotel)
+    assert v == pytest.approx(v_best, rel=1e-6)
+    assert range_nm(energy, v, drag, hotel) == pytest.approx(r_max, rel=1e-6)
+    # One nautical mile beyond the maximum is genuinely unreachable.
+    with pytest.raises(ValueError, match="not attainable"):
+        speed_for_range(r_max + 1.0, energy, drag, hotel)

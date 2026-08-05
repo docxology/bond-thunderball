@@ -8,8 +8,12 @@ submersible range/endurance logistics, passive-sonar detection, set-and-drift
 underwater navigation, and dynamic convoy interdiction.
 
 For the flagship recovery profile the model computes a no-decompression limit
-of {{RESULT_NDL_MINUTES}} minutes at the working depth, an intact escort
-screen rated {{RESULT_CONVOY_STATUS}}, a passive-sonar detection range of
+of {{RESULT_NDL_MINUTES}} minutes at the working depth against an air-supply
+limit of {{RESULT_AIR_DURATION_MIN}} minutes, so decompression rather than gas
+volume is the binding constraint (**{{RESULT_DIVE_BINDING_CONSTRAINT}}**) and
+the planned bottom time is {{RESULT_DIVE_BOTTOM_MIN}} minutes. It further
+reports an intact escort screen rated {{RESULT_CONVOY_STATUS}}, a
+passive-sonar detection range of
 {{RESULT_SONAR_RANGE_NM}} nautical miles, a return-leg drift of
 {{RESULT_NAV_DRIFT_NM}} nautical miles ({{RESULT_NAV_WITHIN_RECOVERY}} within
 the recovery radius), and a closing threat held at

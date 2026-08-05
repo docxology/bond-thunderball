@@ -9,7 +9,9 @@ never push.
 - Film: Thunderball (1965) · mission codename **DISCO VOLANTE**.
 - Protocol: frozen `bond_api` `MissionProvider` (`src/thunderball/mission.py`,
   slug `thunderball`).
-- Domain core: dive planning, convoy integrity, submersible logistics.
+- Domain core (six pure, stdlib-only modules): dive planning (Bühlmann
+  ZH-L16A), convoy integrity, submersible logistics, passive-sonar detection,
+  set-and-drift navigation, and convoy interdiction.
 
 ## Relationship to the BOND suite
 

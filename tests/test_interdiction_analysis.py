@@ -169,3 +169,30 @@ def test_assess_interdiction_breached_close_threat() -> None:
         reaction_time_h=0.05,
     )
     assert result.status == "breached"
+
+
+def test_slow_gap_crossing_holds_even_when_min_separation_is_imminent() -> None:
+    """The penetration-time branch: escorts hold if the gap takes longer to
+    cross than their reaction time, even when the CPA closes first."""
+    # to-min-sep = (2.0 - 1.0) / 100.0 = 0.01 h, below the 0.5 h reaction time,
+    # so the first `held` rule fails; the 2 h gap crossing then carries it.
+    status = interdiction_status(
+        d_cpa_nm=2.0,
+        closing_knots=100.0,
+        min_separation_nm=1.0,
+        reaction_time_h=0.5,
+        penetration_time_h=2.0,
+    )
+    assert status == "held"
+    # Shrinking the crossing below the reaction time flips it to penetrated,
+    # proving the branch is decided by penetration time and nothing else.
+    assert (
+        interdiction_status(
+            d_cpa_nm=2.0,
+            closing_knots=100.0,
+            min_separation_nm=1.0,
+            reaction_time_h=0.5,
+            penetration_time_h=0.1,
+        )
+        == "penetrated"
+    )

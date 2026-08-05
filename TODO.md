@@ -1,79 +1,70 @@
 # TODO — Thunderball (DISCO VOLANTE)
 
+Remaining work only. Anything already shipped is described in `README.md`,
+`AGENTS.md`, and `docs/architecture.md`, not here.
+
 ## Status
 
-Phase-2 (package build) and phase-4 (deep improvement) are **complete** and
-gated (pytest --cov-fail-under=90, ruff, mypy, lineage zero, git clean).
-Phase-4 commit: current working tree (see `git log`).
+Phases 2 (build), 4 (deep improvement), and 5 (review + documentation truth)
+are complete and gated: pytest at the 90% line+branch floor, ruff, mypy, zero
+mocks, zero exemplar-lineage strings, git clean. Measured counts live in
+`docs/_generated/COUNTS.md`.
 
-## Built
+## Open — model fidelity
 
-### Pure domain core (`src/thunderball/`) — six modules
-- `dive_planner.py` — air budget (SAC × ambient pressure), Bühlmann ZH-L16A
-  16-compartment decompression, NDL via binary search, deterministic deco
-  schedule with a bounded ascent/off-gas loop.
-- `convoy_integrity.py` — angular gaps, largest-gap detection, coverage
-  fraction (interval union), sigmoid integrity score + status,
-  min-escorts-for-coverage.
-- `submersible_logistics.py` — cubic drag + hotel-load power, endurance,
-  range, analytic optimal cruise speed, robust range-inverse (bounded
-  bisection on the imbalance minimum).
-- `sonar_detection.py` — Thorp absorption, transmission loss (spreading +
-  absorption), signal excess, detection range (bounded bisection), verdict.
-- `current_navigation.py` — set-and-drift vectors, ground velocity, dead
-  reckoning, course to steer (vector-triangle), cross-track error, drift
-  limits, full navigation assessment.
-- `interdiction_analysis.py` — CPA/TCPA relative-motion geometry, screen
-  penetration time (gap chord), time-to-minimum-separation, interdiction
-  status (held/penetrated/breached).
+- [ ] **Gradient factors.** The ZH-L16A implementation is the raw M-value line
+      with no GF-low/GF-high conservatism. Adding gradient factors would move
+      the no-stop limits toward what a modern dive computer shows and give the
+      deco scheduler a tunable conservatism knob.
+- [ ] **Mixed gas.** Air only. Trimix/nitrox needs a per-gas fraction on the
+      profile, helium compartment half-times and coefficients, and an updated
+      alveolar term. Currently `F_N2` is a module constant.
+- [ ] **Repetitive dives.** `plan_dive` always starts from a surface-saturated
+      diver. A surface-interval model and residual-nitrogen carry-over would let
+      a multi-dive recovery day be planned.
+- [ ] **Ascent-rate violations.** `plan_decompression` models ascent loading but
+      does not flag or penalise an over-fast ascent.
+- [ ] **Detection probability.** `sonar_detection` returns a range, not a
+      probability. A Marcum-Q layer over the signal excess would give a
+      probability of detection and a false-alarm rate.
+- [ ] **Sound-speed structure.** Spherical spreading only — no profile, no
+      multipath, no convergence zones, no bottom interaction.
+- [ ] **Non-uniform currents.** One set/drift vector for the whole water column.
+      Depth shear or a tidal time series would make the drift assessment
+      meaningfully harder and more realistic.
+- [ ] **Multi-track interdiction.** One threat track, one CPA. Multiple tracks
+      would need association and a per-sector threat allocation.
 
-### Protocol adapter
-- `src/thunderball/mission.py` — `MissionProvider` (film = `thunderball`,
-  codename `DISCO VOLANTE`) implementing the frozen `bond_api` protocol;
-  public shape stable (`MissionProvider`, `PROVIDER`, `GADGETS`,
-  `_register_film_gadgets`). Six-step plan; six domain results in
-  `execute()`. Discoverable by slug.
+## Open — integration
 
-### Orchestration
-- `src/thunderball/manuscript_variables.py` — computed `{{TOKEN}}` map from
-  `manuscript/config.yaml` + domain math (deterministic, `--now` override).
-- `src/thunderball/figures.py` — `ndl_curve`, `convoy_screen` (polar),
-  `submersible_range`, `transmission_loss`, `drift_geometry`.
-- `scripts/` — `brief.py`, `recon.py`, `plan.py`, `execute.py`, `debrief.py`,
-  `run_mission.py`, `render_figures.py`, `z_generate_manuscript_variables.py`.
+- [ ] **Persistent provenance.** Bind
+      `bond_utilities.mission_io.record_provenance_outcome` once that dependency
+      ships, so outcomes are recorded rather than only returned. The integration
+      point is `MissionProvider.execute()`'s `Provenance` construction.
+- [ ] **Portable path dependency.** `[tool.uv.sources]` in `pyproject.toml`
+      pins `bond-api` to an absolute path on this machine. A relative path or a
+      workspace declaration would make a fresh clone elsewhere resolve. This is
+      a fleet-wide convention, so change it fleet-wide or not at all.
 
-### Manuscript & docs
-- `manuscript/` sections rewritten for the six-concept DISCO VOLANTE mission;
-  `config.yaml` declares dive/convoy/submersible/sonar/navigation/interdiction
-  parameters; `references.bib` cites Urick (1983), Thorp (1967),
-  Bowditch (2002), Buehlmann (1984). README/AGENTS/TODO/docs/metadata updated.
+## Open — verification
 
-## Integration points (declared)
+- [ ] **No lint gate on `manuscript/`.** Prose is checked only by the token
+      cross-reference test. A markdown linter would catch broken figure
+      references and heading-anchor drift.
+- [ ] **No rendered-PDF check.** The manuscript's tokens and citations are
+      verified, but nothing in this package renders it, so a LaTeX-level break
+      (an unresolved `@fig:` reference, a missing bib key) would only surface at
+      compendium build time.
+- [ ] **Figure content is unasserted beyond variation.** `test_figures.py`
+      checks that PNGs are written, are non-empty, and that the convoy rosette
+      differs between screens — it does not verify what is drawn.
 
-- **`bond-api`** is a local path dependency (`[tool.uv.sources]` in
-  `pyproject.toml`). Only `mission.py` imports it; the domain core remains
-  importable without it.
-- **Discovery**: `src/thunderball/mission.py` exposes `MissionProvider` at
-  module top level (`PROVIDER`), so the orchestrator's slug-based discovery
-  (`bond_api.discovery.load_provider("thunderball", ...)`) finds it.
-- **Gadgets**: registered with any `bond_api.GadgetRegistry` via
-  `_register_film_gadgets` (tested in `tests/test_mission.py`); module-level
-  `GADGETS` dict is consumed by fleet reconcile/harvest tooling.
+## Not planned
 
-## Accepted limitations (documented in manuscript)
+These are deliberate scope boundaries, documented in
+`manuscript/07_scope_and_related_work.md`; do not open them as work items
+without a reason:
 
-- ZH-L16A without gradient factors yields large conservative NDLs at great
-  depth; the deco scheduler is deterministic and bounded (per-stop cap) and
-  is representative, not a certified dive computer.
-- Sonar model is a deterministic passive-sonar range equation (Thorp
-  absorption, spherical spreading); no multipath, scattering, or
-  probabilistic fluctuation terms.
-- Convoy metrics are angular (gaps/coverage) plus a single CPA-based threat
-  track; no multi-target sensor fusion.
-
-## Next (optional)
-
-- Bind `bond_utilities.mission_io.record_provenance_outcome` for persistent
-  outcome records once that dependency ships.
-- Add mixed-gas / trimix compartments and gradient factors to the deco model;
-  add a Marcum-Q detection-probability layer over the sonar range equation.
+- Multi-diver teams and gas sharing.
+- Weapon-target assignment or escort-manoeuvre wargaming.
+- Any claim that the dive planner is fit to plan a real dive.

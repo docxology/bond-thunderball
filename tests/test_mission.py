@@ -72,6 +72,51 @@ def test_execute_is_successful_and_provenanced() -> None:
     assert outcome.results["nav_drift_exceeds_recovery"] is False
 
 
+def test_execute_dive_results_agree_with_the_domain_core() -> None:
+    """The adapter must not re-derive dive numbers; it must report plan_dive()."""
+    from thunderball.dive_planner import plan_dive
+    from thunderball.mission import (
+        CYLINDER_CAPACITY_L,
+        FILL_PRESSURE_BAR,
+        RECOVERY_DEPTH_M,
+        SAC_RATE_LMIN,
+    )
+
+    results = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief())).results
+    dive = plan_dive(
+        depth_m=RECOVERY_DEPTH_M,
+        cylinder_capacity_l=CYLINDER_CAPACITY_L,
+        fill_pressure_bar=FILL_PRESSURE_BAR,
+        sac_rate_lmin=SAC_RATE_LMIN,
+    )
+    assert results["ndl_minutes"] == round(dive.ndl_minutes, 2)
+    assert results["dive_bottom_minutes"] == round(dive.bottom_minutes, 2)
+    assert results["dive_gas_required_l"] == round(dive.total_gas_required_l(), 1)
+    assert results["dive_gas_margin_l"] == round(dive.gas_margin_l(), 1)
+    assert results["dive_binding_constraint"] == "deco"
+    assert results["dive_deco_stops"] == len(dive.deco_stops)
+    # The gas budget must actually fit the cylinder for the flagship profile.
+    assert results["dive_gas_margin_l"] > 0.0
+
+
+def test_coverage_target_constant_drives_min_escorts() -> None:
+    """min_escorts_90pct must follow COVERAGE_TARGET, not a stray literal."""
+    from thunderball.convoy_integrity import min_escorts_for_coverage
+    from thunderball.mission import COVERAGE_TARGET, HALF_ANGLE_DEG
+
+    results = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief())).results
+    assert results["min_escorts_90pct"] == min_escorts_for_coverage(
+        COVERAGE_TARGET, HALF_ANGLE_DEG
+    )
+    # Both arguments must be load-bearing, not coincidentally equal: a looser
+    # target needs strictly fewer escorts, a narrower arc strictly more.
+    assert min_escorts_for_coverage(0.8, HALF_ANGLE_DEG) < results["min_escorts_90pct"]
+    assert (
+        min_escorts_for_coverage(COVERAGE_TARGET, HALF_ANGLE_DEG / 2.0)
+        > results["min_escorts_90pct"]
+    )
+
+
 def test_debrief_records_lessons() -> None:
     outcome = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief()))
     debrief = PROVIDER.debrief(outcome)
@@ -90,7 +135,7 @@ def test_provider_satisfies_discovery_protocol() -> None:
     assert isinstance(PROVIDER, Protocol)
 
 
-def test_provider_is_discoverable_by_slug(tmp_path) -> None:
+def test_provider_is_discoverable_by_slug() -> None:
     # The real discovery loader must find `thunderball.mission`.
     from bond_api.discovery import load_provider
 

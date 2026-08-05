@@ -3,7 +3,7 @@
 
 paper:
   title: "Thunderball: DISCO VOLANTE — Special-Agent Mission Software"
-  subtitle: "Dive Planning, NATO Convoy Integrity, and Submersible Logistics"
+  subtitle: "Dive Planning, Convoy Integrity, Submersible Logistics, Passive Sonar, Set-and-Drift Navigation, and Interdiction"
   version: "0.1.0"
   date: "2026-08-04"
 
@@ -22,12 +22,18 @@ publication:
 
 keywords:
   - "dive planning"
-  - "Bühlmann decompression"
+  - "Bühlmann ZH-L16A decompression"
+  - "no-decompression limit"
   - "air consumption"
   - "convoy integrity"
   - "escort coverage"
   - "submersible logistics"
   - "range and endurance"
+  - "passive sonar"
+  - "Thorp absorption"
+  - "set-and-drift navigation"
+  - "closest point of approach"
+  - "convoy interdiction"
   - "deterministic mission software"
 
 mission:

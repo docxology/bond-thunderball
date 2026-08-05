@@ -34,7 +34,7 @@ from bond_api.registry import GadgetRegistry
 from . import __version__ as _PACKAGE_VERSION
 from .convoy_integrity import assess_convoy, min_escorts_for_coverage
 from .current_navigation import assess_navigation, course_to_steer
-from .dive_planner import BuhlmannModel, compute_ndl, cylinder_gas_volume
+from .dive_planner import BuhlmannModel, bottom_time_from_air, compute_ndl, plan_dive
 from .interdiction_analysis import assess_interdiction, closest_point_of_approach
 from .sonar_detection import detection_range_nm
 from .submersible_logistics import optimal_range_speed, range_nm
@@ -53,6 +53,8 @@ SAC_RATE_LMIN = 20.0
 RECOVERY_DEPTH_M = 40.0
 ESCORT_BEARINGS = (0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0)
 HALF_ANGLE_DEG = 30.0
+#: Perimeter-coverage target used to size a uniform reinforcement screen.
+COVERAGE_TARGET = 0.9
 SUBMERSIBLE_DRAG = 0.035
 SUBMERSIBLE_HOTEL_KW = 2.0
 SUBMERSIBLE_ENERGY_KWH = 400.0
@@ -268,18 +270,26 @@ class MissionProvider:
         interdiction_params = plan.steps[5].params
 
         model = BuhlmannModel()
-        ndl = compute_ndl(dive_params["depth_m"], model=model)
-        gas_volume = cylinder_gas_volume(
-            dive_params["cylinder_capacity_l"], dive_params["fill_bar"]
+        dive = plan_dive(
+            depth_m=dive_params["depth_m"],
+            cylinder_capacity_l=dive_params["cylinder_capacity_l"],
+            fill_pressure_bar=dive_params["fill_bar"],
+            sac_rate_lmin=dive_params["sac_lmin"],
+            model=model,
         )
-        gas_duration_min = gas_volume / (
-            dive_params["sac_lmin"] * (1.013 + 0.1 * dive_params["depth_m"])
+        ndl = dive.ndl_minutes
+        # Gas-limited bottom time, before the NDL cap: the same helper plan_dive
+        # uses internally, so the adapter cannot drift from the domain core.
+        gas_duration_min = bottom_time_from_air(
+            dive.air_volume_l, dive_params["sac_lmin"], dive_params["depth_m"]
         )
 
         convoy = assess_convoy(
             tuple(convoy_params["bearings"]), convoy_params["half_angle_deg"]
         )
-        min_escorts = min_escorts_for_coverage(0.9, convoy_params["half_angle_deg"])
+        min_escorts = min_escorts_for_coverage(
+            COVERAGE_TARGET, convoy_params["half_angle_deg"]
+        )
 
         v_opt = optimal_range_speed(
             logistics_params["energy_kwh"],
@@ -340,6 +350,11 @@ class MissionProvider:
             results={
                 "ndl_minutes": round(ndl, 2),
                 "air_duration_min": round(gas_duration_min, 2),
+                "dive_bottom_minutes": round(dive.bottom_minutes, 2),
+                "dive_binding_constraint": dive.binding_constraint(),
+                "dive_gas_required_l": round(dive.total_gas_required_l(), 1),
+                "dive_gas_margin_l": round(dive.gas_margin_l(), 1),
+                "dive_deco_stops": len(dive.deco_stops),
                 "convoy_largest_gap_deg": round(convoy.largest_gap_deg, 2),
                 "convoy_coverage": round(convoy.coverage, 4),
                 "convoy_score": round(convoy.score, 4),

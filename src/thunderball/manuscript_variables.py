@@ -18,7 +18,7 @@ import yaml
 
 from .convoy_integrity import assess_convoy, min_escorts_for_coverage
 from .current_navigation import assess_navigation
-from .dive_planner import BuhlmannModel, compute_ndl, cylinder_gas_volume
+from .dive_planner import BuhlmannModel, bottom_time_from_air, plan_dive
 from .interdiction_analysis import assess_interdiction
 from .sonar_detection import detection_range_nm
 from .submersible_logistics import optimal_range_speed, range_nm
@@ -39,7 +39,7 @@ def load_mission_config(project_root: str | Path | None = None) -> dict[str, Any
 
     Raises:
         FileNotFoundError: If ``config.yaml`` is missing.
-        ValueError: If the file does not contain a mapping.
+        TypeError: If the file does not parse to a mapping.
     """
     root = (
         Path(project_root)
@@ -129,10 +129,20 @@ def generate_variables(
     reaction_h = float(interdiction["reaction_time_h"])
 
     # Deterministic derived results — the same math the mission executes.
+    # Both call plan_dive(), so the manuscript cannot drift from the mission by
+    # re-deriving ambient pressure or the air budget by hand.
     model = BuhlmannModel()
-    ndl = compute_ndl(depth_m, model=model)
-    gas_volume = cylinder_gas_volume(cylinder_capacity_l, fill_pressure_bar)
-    air_duration = gas_volume / (sac_lmin * (1.013 + 0.1 * depth_m))
+    dive = plan_dive(
+        depth_m=depth_m,
+        cylinder_capacity_l=cylinder_capacity_l,
+        fill_pressure_bar=fill_pressure_bar,
+        sac_rate_lmin=sac_lmin,
+        model=model,
+    )
+    ndl = dive.ndl_minutes
+    # Gas-limited bottom time before the NDL cap — the same helper plan_dive
+    # uses internally, so the two can never disagree.
+    air_duration = bottom_time_from_air(dive.air_volume_l, sac_lmin, depth_m)
     convoy = assess_convoy(bearings, half_angle)
     min_escorts = min_escorts_for_coverage(coverage_target, half_angle)
     v_opt = optimal_range_speed(energy_kwh, drag, hotel_kw)
@@ -194,6 +204,11 @@ def generate_variables(
         "CONFIG_ESCORT_REACTION_H": _fmt(reaction_h, 2),
         "RESULT_NDL_MINUTES": _fmt(ndl, 2),
         "RESULT_AIR_DURATION_MIN": _fmt(air_duration, 2),
+        "RESULT_DIVE_BOTTOM_MIN": _fmt(dive.bottom_minutes, 2),
+        "RESULT_DIVE_BINDING_CONSTRAINT": dive.binding_constraint(),
+        "RESULT_DIVE_GAS_REQUIRED_L": _fmt(dive.total_gas_required_l(), 1),
+        "RESULT_DIVE_GAS_MARGIN_L": _fmt(dive.gas_margin_l(), 1),
+        "RESULT_DIVE_DECO_STOPS": str(len(dive.deco_stops)),
         "RESULT_LARGEST_GAP_DEG": _fmt(convoy.largest_gap_deg, 2),
         "RESULT_COVERAGE": _fmt(convoy.coverage, 4),
         "RESULT_CONVOY_SCORE": _fmt(convoy.score, 4),

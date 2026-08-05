@@ -24,9 +24,11 @@ __all__ = [
     "ConvoyStatus",
     "IntegrityResult",
     "angular_gaps",
+    "assess_convoy",
     "coverage_fraction",
     "integrity_score",
     "integrity_status",
+    "is_bearing_covered",
     "largest_gap",
     "min_escorts_for_coverage",
 ]
@@ -125,6 +127,31 @@ def coverage_fraction(
     return min(1.0, total / FULL_CIRCLE)
 
 
+def is_bearing_covered(
+    bearing_deg: float,
+    bearings_deg: tuple[float, ...],
+    half_angle_deg: float = 30.0,
+) -> bool:
+    """Whether ``bearing_deg`` falls inside any escort's detection arc.
+
+    The per-bearing companion to :func:`coverage_fraction`: that function
+    returns the *aggregate* defended fraction, this one answers the pointwise
+    question "is this bearing watched?" and so can be swept around the circle
+    to draw the screen's actual coverage rosette.
+
+    Angular distance is measured on the circle, so the 0/360 seam is handled
+    without special-casing.
+    """
+    half = abs(half_angle_deg)
+    target = bearing_deg % FULL_CIRCLE
+    for escort in bearings_deg:
+        delta = abs(target - escort % FULL_CIRCLE) % FULL_CIRCLE
+        separation = min(delta, FULL_CIRCLE - delta)
+        if separation <= half:
+            return True
+    return False
+
+
 def integrity_score(largest_gap_deg: float, coverage: float) -> float:
     """Deterministic convoy readiness in ``[0, 1]``.
 
@@ -155,16 +182,44 @@ def assess_convoy(
     half_angle_deg: float = 30.0,
     marginal_under_deg: float = 75.0,
 ) -> IntegrityResult:
-    """Full convoy integrity assessment over an escort screen."""
+    """Full convoy integrity assessment over an escort screen.
+
+    ``marginal_under_deg`` is a hard gap ceiling layered *over* the continuous
+    score: a screen whose largest gap reaches it is downgraded from ``ok`` to
+    ``marginal`` even when the sigmoid score would have passed it. It exists so
+    a mission can impose a sector width narrower than the score's nominal 60°
+    knee without retuning the score itself; it can only downgrade, never
+    upgrade.
+
+    Args:
+        bearings_deg: Escort bearings (degrees true) around the formation.
+        half_angle_deg: Each escort's detection half-angle (degrees).
+        marginal_under_deg: Largest gap (degrees) at or above which an
+            otherwise-``ok`` screen is downgraded to ``marginal``.
+
+    Returns:
+        The full :class:`IntegrityResult` for the screen.
+    """
     gap, start, end = largest_gap(bearings_deg)
     coverage = coverage_fraction(bearings_deg, half_angle_deg)
     score = integrity_score(gap, coverage)
     status = integrity_status(score)
-    detail = (
-        status.detail
-        if score < 0.7 or gap >= 60.0
-        else f"largest gap {gap:.1f}deg under {marginal_under_deg:.0f}deg screening threshold"
-    )
+    if status.label == "ok" and gap >= marginal_under_deg:
+        status = ConvoyStatus(
+            label="marginal",
+            detail=(
+                f"largest gap {gap:.1f}deg reaches the "
+                f"{marginal_under_deg:.0f}deg sector ceiling"
+            ),
+        )
+    elif status.label == "ok":
+        status = ConvoyStatus(
+            label="ok",
+            detail=(
+                f"largest gap {gap:.1f}deg under the "
+                f"{marginal_under_deg:.0f}deg sector ceiling"
+            ),
+        )
     return IntegrityResult(
         bearings=tuple(b % FULL_CIRCLE for b in bearings_deg),
         largest_gap_deg=gap,
@@ -172,7 +227,7 @@ def assess_convoy(
         gap_end_deg=end,
         coverage=coverage,
         score=score,
-        status=ConvoyStatus(label=status.label, detail=detail),
+        status=status,
     )
 
 

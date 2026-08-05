@@ -14,13 +14,39 @@ free gas, and the bottom time follows by dividing usable volume by the
 at-depth demand.
 
 Second, inert-gas loading is modelled with the **Bühlmann ZH-L16A** tissue
-model: sixteen compartments, each with a nitrogen half-time and an M-value
-line `M = a*P + b`. A compartment's inert-gas pressure approaches the
+model: sixteen compartments, each with a nitrogen half-time and a pair of
+coefficients `(a, b)`. Bühlmann states the constraint as a tolerated *ambient*
+pressure, `P_amb_tol = (P_tissue - a) * b`; inverted for the tolerated tissue
+tension at a given ambient pressure this is the M-value line
+
+```
+M(P) = P / b + a
+```
+
+which puts the fastest compartment's surfacing ceiling at 3.27 bar and the
+slowest at 1.28 bar. A compartment's inert-gas pressure approaches the
 alveolar pressure `P_alv = f_N2 (P - pH2O)` exponentially on its half-time.
-The no-decompression limit at a depth is the largest bottom time for which
-every compartment stays under its M-value at that ambient pressure
-(@fig:ndl). When a dive exceeds it, `plan_decompression` emits ascending stop
-holds that discharge the controlling tissue.
+
+The **no-decompression limit** is the largest bottom time after which a
+*direct ascent to the surface* remains legal, so every compartment is tested
+against its M-value at **surface** ambient pressure — the ceiling the diver
+must clear on the way up — and not against the inflated M-value at working
+depth (@fig:ndl). The distinction is not cosmetic: at
+{{CONFIG_RECOVERY_DEPTH_M}} m the ambient pressure is roughly five times the
+surface value, so evaluating the ceiling at depth admits almost any bottom
+time and overstates the limit by more than an order of magnitude. The limit is
+located by bisection on bottom minutes; when a dive exceeds it,
+`plan_decompression` emits ascending stop holds that discharge the controlling
+tissue.
+
+`plan_dive` is the single entry point that combines the two: it takes the
+cylinder, SAC rate, and depth, flies `min(air_limit, NDL)` unless an explicit
+bottom time is requested, plans the decompression schedule for the profile
+actually flown, and reports which limit bound. Gas for each decompression stop
+is charged at that stop's own ambient pressure — a 6 m hold costs about 1.6x
+the surface SAC volume — so the reported gas requirement is a real budget
+rather than a surface-rate approximation. Both the mission adapter and this
+manuscript's token generator call `plan_dive`, so the two cannot disagree.
 
 ## Convoy integrity
 
@@ -29,7 +55,11 @@ screen as a set of bearing angles around the protected formation. Between
 consecutive escorts there is an uncovered **angular gap**; the largest gap is
 the weakest sector a hostile interceptor can exploit. Each escort defends an
 arc of `2 * half_angle` around its bearing, and **coverage fraction** is the
-unioned defended arc divided by 360° (@fig:convoy).
+unioned defended arc divided by 360°. Its pointwise companion
+`is_bearing_covered` answers whether one specific bearing falls inside any
+escort's arc, measuring separation on the circle so the 0/360° seam needs no
+special case; sweeping it around the compass draws the screen's actual
+coverage rosette (@fig:convoy).
 
 The **integrity score** combines a sigmoid gap penalty with coverage:
 
@@ -38,8 +68,13 @@ score = 1 / (1 + exp((gap - 60) / 12))  *  (0.5 + 0.5 * coverage)
 ```
 
 Scores above 0.7 are rated `ok`, between 0.4 and 0.7 `marginal`, and below
-0.4 `breached`. `min_escorts_for_coverage` returns the smallest uniform screen
-that reaches a coverage target.
+0.4 `breached`. Layered over the continuous score is a hard **sector ceiling**
+(`marginal_under_deg`): a screen whose largest gap reaches it is downgraded
+from `ok` to `marginal` even when the score would have passed it, which lets a
+mission impose a sector width narrower than the score's nominal 60° knee
+without retuning the score. The ceiling can only downgrade, never upgrade.
+`min_escorts_for_coverage` returns the smallest uniform screen that reaches a
+coverage target.
 
 ## Submersible logistics
 

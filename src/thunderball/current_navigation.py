@@ -112,8 +112,10 @@ def course_to_steer(
     """
     _require_positive(speed_knots, "speed_knots")
     rad = math.radians(desired_track_deg % 360.0)
-    # Left-perpendicular of the track unit vector; the current's component
-    # along it must be cancelled by own velocity.
+    # Right-hand perpendicular of the track unit vector (sin, cos): rotating
+    # the track +90 deg gives (cos, -sin). The current's component along it is
+    # what own velocity must cancel, so a current setting to the right of track
+    # produces a negative ratio and a heading offset to the left.
     p_e, p_n = math.cos(rad), -math.sin(rad)
     cur_e, cur_n = drift_vector(set_deg, drift_knots)
     c_perp = cur_e * p_e + cur_n * p_n

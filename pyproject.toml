@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "thunderball"
 version = "0.1.0"
 license = {text = "MIT"}
-description = "DISCO VOLANTE — special-agent mission software: dive planning, NATO convoy integrity, submersible logistics."
+description = "DISCO VOLANTE — special-agent mission software: Bühlmann dive planning, NATO convoy integrity, submersible logistics, passive sonar, set-and-drift navigation, and convoy interdiction."
 authors = [
     {name = "Daniel Ari Friedman", email = "daniel@activeinference.institute"}
 ]

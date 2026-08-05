@@ -3,10 +3,11 @@ message: "If you use this software, please cite it as below."
 title: "Thunderball: DISCO VOLANTE — Special-Agent Mission Software"
 abstract: >-
   BOND film package implementing deterministic special-agent mission software
-  for the underwater nuclear-recovery operation from Thunderball (1965):
-  dive planning (Bühlmann ZH-L16A decompression, air budget), NATO convoy
-  integrity analysis, and submersible range/endurance logistics, exposed
-  through the frozen bond_api MissionProvider protocol.
+  for the underwater nuclear-recovery operation from Thunderball (1965): dive
+  planning (Bühlmann ZH-L16A decompression, air budget), NATO convoy integrity
+  analysis, submersible range/endurance logistics, passive-sonar detection,
+  set-and-drift navigation, and convoy interdiction, exposed through the frozen
+  bond_api MissionProvider protocol.
 authors:
   - family-names: Friedman
     given-names: Daniel Ari
@@ -14,9 +15,16 @@ authors:
     affiliation: "Active Inference Institute"
 keywords:
   - dive planning
-  - Bühlmann decompression
+  - Bühlmann ZH-L16A decompression
+  - no-decompression limit
   - convoy integrity
+  - escort coverage
   - submersible logistics
+  - passive sonar
+  - Thorp absorption
+  - set-and-drift navigation
+  - closest point of approach
+  - convoy interdiction
   - deterministic mission software
 license: MIT
 version: 0.1.0

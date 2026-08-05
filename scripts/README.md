@@ -1,7 +1,10 @@
 # scripts — Mission CLIs for Thunderball (DISCO VOLANTE)
 
-Thin orchestrators. Each script bootstraps `sys.path` via `_bootstrap.py`,
-then delegates to `src/` and `bond_api`. No business logic lives here.
+Thin orchestrators. Each script imports `thunderball` from the installed
+(editable) distribution that `uv sync --extra dev` puts in `.venv`, then
+delegates to `src/` and `bond_api`. No business logic lives here, and no
+script manipulates `sys.path`: run them through `uv run` and the import path
+is already correct.
 
 | Script | Phase | Delegates to |
 |---|---|---|

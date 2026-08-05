@@ -68,20 +68,27 @@ def test_run_mission_script() -> None:
     assert "success=True" in result.stdout
 
 
-def test_render_figures_script_writes_output(tmp_path) -> None:
+def test_render_figures_script_writes_output() -> None:
     result = run_script("render_figures.py")
-    assert result.returncode == 0
-    for line in result.stdout.splitlines():
+    assert result.returncode == 0, result.stderr
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    # Assert the count first: an empty stdout would make a bare loop vacuous.
+    assert len(lines) == 5, result.stdout
+    for line in lines:
         assert Path(line).exists()
+        assert Path(line).stat().st_size > 0
 
 
-def test_z_generate_manuscript_variables_writes_json(tmp_path) -> None:
+def test_z_generate_manuscript_variables_writes_json() -> None:
     result = run_script("z_generate_manuscript_variables.py")
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stderr
     json_path = PROJECT_ROOT / "output" / "data" / "manuscript_variables.json"
-    if json_path.exists():
-        payload = json.loads(json_path.read_text(encoding="utf-8"))
-        assert payload["MISSION_CODENAME"] == "DISCO VOLANTE"
+    # Unconditional: the script always writes this file, so a missing file is a
+    # failure, not a reason to skip the assertions.
+    assert json_path.exists(), f"{json_path} was not written"
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["MISSION_CODENAME"] == "DISCO VOLANTE"
+    assert payload["RESULT_INTERDICTION_STATUS"] == "held"
 
 
 def test_pure_core_imports_without_bond_api() -> None:
