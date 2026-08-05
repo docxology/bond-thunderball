@@ -150,7 +150,10 @@ def generate_variables(
 
     sonar_range = detection_range_nm(sl_db, nl_db, di_db, f_khz, dt_db, max_range_nm)
 
-    bottom_hours = air_duration / 60.0
+    # The team is in the water for the *planned* bottom time — min(air, NDL) —
+    # not for the air-budget limit it never gets to fly. Same choice the
+    # mission adapter makes, from the same plan_dive call.
+    bottom_hours = dive.bottom_minutes / 60.0
     nav = assess_navigation(
         desired_track_deg=track_deg,
         speed_knots=nav_speed,
@@ -201,6 +204,7 @@ def generate_variables(
         "CONFIG_THREAT_COURSE_DEG": _fmt(threat_course, 0),
         "CONFIG_THREAT_SPEED_KNOTS": _fmt(threat_speed, 1),
         "CONFIG_SCREEN_RADIUS_NM": _fmt(screen_radius, 1),
+        "CONFIG_MIN_SEPARATION_NM": _fmt(min_separation, 1),
         "CONFIG_ESCORT_REACTION_H": _fmt(reaction_h, 2),
         "RESULT_NDL_MINUTES": _fmt(ndl, 2),
         "RESULT_AIR_DURATION_MIN": _fmt(air_duration, 2),
@@ -210,6 +214,7 @@ def generate_variables(
         "RESULT_DIVE_GAS_MARGIN_L": _fmt(dive.gas_margin_l(), 1),
         "RESULT_DIVE_DECO_STOPS": str(len(dive.deco_stops)),
         "RESULT_LARGEST_GAP_DEG": _fmt(convoy.largest_gap_deg, 2),
+        "RESULT_UNCOVERED_SECTOR_DEG": _fmt(convoy.uncovered_sector_deg, 2),
         "RESULT_COVERAGE": _fmt(convoy.coverage, 4),
         "RESULT_CONVOY_SCORE": _fmt(convoy.score, 4),
         "RESULT_CONVOY_STATUS": convoy.status.label,

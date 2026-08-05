@@ -5,13 +5,19 @@ the static escort-screen assessment (``convoy_integrity``): given a threat
 track and the convoy's own course, it computes
 
 * **Closest point of approach (CPA)** — relative-motion geometry between the
-  threat and the convoy: time-to-CPA, CPA distance, and closing speed.
+  threat and the convoy: time-to-CPA, CPA distance, closing speed, and the
+  relative-speed magnitude the range profile is swept at.
 * **Screen penetration time** — how long an interceptor takes to cross the
-  straight-line chord of the largest uncovered screen gap.
-* **Interdiction status** — a deterministic rule combining CPA distance,
-  escort reaction time, and penetration time: ``held`` (escorts respond in
-  time), ``penetrated`` (the gap is crossed before escorts react), or
-  ``breached`` (the threat closes inside the minimum separation).
+  straight-line chord subtended by the widest *spacing* between adjacent
+  escorts (``convoy_integrity.largest_gap``), at the screen radius.
+* **Time to minimum separation** — when the threat's range first falls to the
+  minimum-separation limit, from the constant-velocity range profile
+  ``range(t)² = d_cpa² + v_rel² (t - t_cpa)²``. Infinite when the CPA never
+  comes inside the limit.
+* **Interdiction status** — a deterministic rule combining that time, escort
+  reaction time, and penetration time: ``breached`` (the threat reaches
+  minimum separation before escorts react), ``penetrated`` (the gap chord is
+  crossed before escorts react), or ``held``.
 
 All arithmetic is deterministic math over explicit floats; no randomness.
 """
@@ -40,7 +46,12 @@ class CPAResult:
 
     t_cpa_h: float
     d_cpa_nm: float
+    #: Radial rate at which the separation is shrinking *now* (negative when
+    #: the tracks are diverging).
     closing_knots: float
+    #: Magnitude of the relative-velocity vector — constant over the track, and
+    #: the speed at which the range profile sweeps through its hyperbola.
+    relative_speed_knots: float
 
 
 @dataclass(frozen=True)
@@ -87,14 +98,24 @@ def closest_point_of_approach(
     sep2 = rel_vel[0] * rel_vel[0] + rel_vel[1] * rel_vel[1]
     initial_sep = math.hypot(rel_pos[0], rel_pos[1])
     if sep2 < _EPS_REL_VEL:
-        return CPAResult(t_cpa_h=0.0, d_cpa_nm=initial_sep, closing_knots=0.0)
+        return CPAResult(
+            t_cpa_h=0.0,
+            d_cpa_nm=initial_sep,
+            closing_knots=0.0,
+            relative_speed_knots=0.0,
+        )
     dot = rel_pos[0] * rel_vel[0] + rel_pos[1] * rel_vel[1]
     t_cpa = max(0.0, -dot / sep2)
     cpa_e = rel_pos[0] + t_cpa * rel_vel[0]
     cpa_n = rel_pos[1] + t_cpa * rel_vel[1]
     d_cpa = math.hypot(cpa_e, cpa_n)
     closing = -dot / initial_sep if initial_sep > 0.0 else 0.0
-    return CPAResult(t_cpa_h=t_cpa, d_cpa_nm=d_cpa, closing_knots=closing)
+    return CPAResult(
+        t_cpa_h=t_cpa,
+        d_cpa_nm=d_cpa,
+        closing_knots=closing,
+        relative_speed_knots=math.sqrt(sep2),
+    )
 
 
 def screen_penetration_time(
@@ -102,8 +123,10 @@ def screen_penetration_time(
 ) -> float:
     """Hours for an interceptor at ``speed_knots`` to cross the gap's chord.
 
-    The chord across the uncovered angular sector of a screen at
-    ``screen_radius_nm``: ``2 r sin(gap/2)``.
+    ``gap_deg`` is an angular sector of a screen at ``screen_radius_nm``, whose
+    straight-line chord is ``2 r sin(gap/2)``. Callers pass the widest escort
+    *spacing* (``convoy_integrity.largest_gap``), so this is the transit across
+    the sector between two adjacent escorts — not across an unwatched arc.
     """
     _require_positive(gap_deg, "gap_deg")
     _require_positive(screen_radius_nm, "screen_radius_nm")
@@ -113,52 +136,73 @@ def screen_penetration_time(
 
 
 def time_to_minimum_separation(
-    d_cpa_nm: float, closing_knots: float, min_separation_nm: float
+    d_cpa_nm: float,
+    t_cpa_h: float,
+    relative_speed_knots: float,
+    min_separation_nm: float,
 ) -> float:
-    """Hours until the threat closes to ``min_separation_nm`` (``inf`` if it
-    never does: the CPA already exceeds the limit or the tracks diverge)."""
+    """Hours until the threat's range *first* falls to ``min_separation_nm``.
+
+    Under constant relative velocity the range profile is the hyperbola
+    ``range(t)² = d_cpa² + v_rel² (t - t_cpa)²``, so the range reaches ``R`` at
+    ``t = t_cpa ± sqrt(R² - d_cpa²) / v_rel`` and the first (earlier) root is
+    the answer.
+
+    Returns ``inf`` when ``d_cpa_nm >= min_separation_nm``: the whole point of
+    the CPA is that it is the smallest range the threat ever achieves, so a CPA
+    outside the limit means the limit is never reached. Returns ``0.0`` when
+    the threat is inside the limit already (the earlier root is in the past).
+    """
     _require_nonneg(d_cpa_nm, "d_cpa_nm")
+    _require_nonneg(t_cpa_h, "t_cpa_h")
+    _require_nonneg(relative_speed_knots, "relative_speed_knots")
     _require_positive(min_separation_nm, "min_separation_nm")
-    if d_cpa_nm <= min_separation_nm or closing_knots <= 0.0:
+    if d_cpa_nm >= min_separation_nm:
         return math.inf
-    return float((d_cpa_nm - min_separation_nm) / closing_knots)
+    if relative_speed_knots <= 0.0:
+        # Zero relative motion with a CPA inside the limit: already there.
+        return 0.0
+    half_chord_h = (
+        math.sqrt(min_separation_nm * min_separation_nm - d_cpa_nm * d_cpa_nm)
+        / relative_speed_knots
+    )
+    return max(0.0, t_cpa_h - half_chord_h)
 
 
 def interdiction_status(
-    d_cpa_nm: float,
-    closing_knots: float,
-    min_separation_nm: float,
-    reaction_time_h: float,
+    time_to_min_sep_h: float,
     penetration_time_h: float,
+    reaction_time_h: float,
+    closing_knots: float,
 ) -> str:
-    """Deterministic convoy-screen verdict for a closing threat.
+    """Deterministic convoy-screen verdict, as a race against escort reaction.
 
-    Rules, in order:
+    The verdict is a function of three times, not of the CPA distance directly:
+    ``time_to_min_sep_h`` (from :func:`time_to_minimum_separation`, ``inf``
+    when the threat never comes inside the limit), ``penetration_time_h``, and
+    the escorts' ``reaction_time_h``. Rules, in order:
 
-    * ``breached`` — the threat's CPA is already inside the minimum separation.
-    * ``held`` — escorts react (``reaction_time_h``) before the threat closes
-      to minimum separation or crosses the screen gap.
-    * ``penetrated`` — the gap is crossed before escorts can respond.
+    * ``breached`` — the threat reaches minimum separation before escorts
+      react. A CPA outside the limit gives ``inf`` here, which never wins this
+      comparison, so no distant track can be scored as a breach.
+    * ``held`` — a diverging threat (``closing_knots <= 0``); the screen is not
+      under pressure.
+    * ``penetrated`` — the gap chord is crossed before escorts can respond.
+    * ``held`` — otherwise: escorts get there first.
 
     Returns one of ``"held"``, ``"penetrated"``, ``"breached"``.
     """
-    _require_nonneg(d_cpa_nm, "d_cpa_nm")
-    _require_positive(min_separation_nm, "min_separation_nm")
+    _require_nonneg(time_to_min_sep_h, "time_to_min_sep_h")
     _require_nonneg(reaction_time_h, "reaction_time_h")
     _require_positive(penetration_time_h, "penetration_time_h")
-    if d_cpa_nm < min_separation_nm:
+    if time_to_min_sep_h < reaction_time_h:
         return "breached"
     if closing_knots <= 0.0:
         # Diverging threat: the screen is not threatened.
         return "held"
-    if (
-        time_to_minimum_separation(d_cpa_nm, closing_knots, min_separation_nm)
-        >= reaction_time_h
-    ):
-        return "held"
-    if penetration_time_h >= reaction_time_h:
-        return "held"
-    return "penetrated"
+    if penetration_time_h < reaction_time_h:
+        return "penetrated"
+    return "held"
 
 
 def assess_interdiction(
@@ -184,14 +228,16 @@ def assess_interdiction(
     )
     penetration = screen_penetration_time(gap_deg, screen_radius_nm, threat_speed_knots)
     to_min_sep = time_to_minimum_separation(
-        cpa.d_cpa_nm, cpa.closing_knots, min_separation_nm
+        cpa.d_cpa_nm,
+        cpa.t_cpa_h,
+        cpa.relative_speed_knots,
+        min_separation_nm,
     )
     status = interdiction_status(
-        cpa.d_cpa_nm,
-        cpa.closing_knots,
-        min_separation_nm,
-        reaction_time_h,
+        to_min_sep,
         penetration,
+        reaction_time_h,
+        cpa.closing_knots,
     )
     return InterdictionAssessment(
         d_cpa_nm=cpa.d_cpa_nm,

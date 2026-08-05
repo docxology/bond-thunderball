@@ -36,8 +36,10 @@ omits:
   the tolerated-ambient-pressure formulation used here [@buehlmann1984]. The
   *US Navy Diving Manual* is the standard operational reference against which
   no-stop limits are conventionally sanity-checked [@usnavydiving2016]; the
-  test suite pins this package's limits against those published bands rather
-  than against its own arithmetic. Modern dive computers add gradient factors
+  test suite pins this package's limits inside bands around those published
+  air limits rather than against its own arithmetic. The manual's limits come
+  from the Navy's own EL/VVAL-18 model lineage, not from ZH-L16A, so the check
+  is a cross-model agreement test and not a lookup of the model under test. Modern dive computers add gradient factors
   and bubble-model variants that this package intentionally omits.
 * **Underwater acoustics** — Urick is the standard treatment of the sonar
   equation, transmission loss, and detection threshold [@urick1983]; the

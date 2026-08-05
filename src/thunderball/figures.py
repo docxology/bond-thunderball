@@ -27,7 +27,7 @@ import numpy as np
 
 from .convoy_integrity import coverage_fraction, is_bearing_covered
 from .current_navigation import drift_vector
-from .dive_planner import BuhlmannModel, bottom_time_from_air, compute_ndl
+from .dive_planner import BuhlmannModel, compute_ndl, plan_dive
 from .sonar_detection import transmission_loss
 from .submersible_logistics import range_nm
 
@@ -54,9 +54,20 @@ def _out_path(figures_out: str, name: str) -> str:
 
 
 def _flagship_bottom_hours() -> float:
-    """Gas-limited bottom time (hours) of the flagship recovery profile."""
+    """Planned bottom time (hours) of the flagship recovery profile.
+
+    ``plan_dive`` flies ``min(air limit, NDL)``, so this is the time the team
+    is actually in the water — the decompression limit for this profile, not
+    the longer air-budget limit it never gets to fly.
+    """
     capacity_l, fill_bar, sac_lmin, depth_m = FLAGSHIP_DIVE
-    return bottom_time_from_air(capacity_l * fill_bar, sac_lmin, depth_m) / 60.0
+    plan = plan_dive(
+        depth_m=depth_m,
+        cylinder_capacity_l=capacity_l,
+        fill_pressure_bar=fill_bar,
+        sac_rate_lmin=sac_lmin,
+    )
+    return plan.bottom_minutes / 60.0
 
 
 def plot_ndl_curve(
@@ -89,8 +100,10 @@ def plot_convoy_screen(
 
     Each of 360 sample bearings is tested against the *actual* screen with
     :func:`~thunderball.convoy_integrity.is_bearing_covered`, so the filled
-    lobes are the sectors these escorts really watch and the notches are the
-    real uncovered gaps. Escort bearings are marked on the rim.
+    lobes are the sectors these escorts really watch, and any notches are
+    genuinely uncovered arcs — a screen whose arcs overlap all the way round
+    draws an unbroken ring, which is the correct picture of full coverage.
+    Escort bearings are marked on the rim.
     """
     fig, ax = plt.subplots(figsize=(5.0, 5.0), subplot_kw={"projection": "polar"})
     samples = np.linspace(0.0, 360.0, 360, endpoint=False)
@@ -200,11 +213,12 @@ def plot_drift_geometry(
     duration_h: float | None = None,
     figures_out: str = FIGURES_OUT,
 ) -> str:
-    """Render the set-and-drift geometry over the dive's bottom time.
+    """Render the set-and-drift geometry over the dive's planned bottom time.
 
-    ``duration_h`` defaults to the gas-limited bottom time of the flagship
-    recovery profile, computed from the domain core rather than pinned to a
-    literal, so the figure moves when the dive parameters move.
+    ``duration_h`` defaults to the flagship profile's planned bottom time —
+    ``min(air limit, NDL)`` from ``plan_dive`` — computed from the domain core
+    rather than pinned to a literal, so the figure moves when the dive
+    parameters move.
     """
     if duration_h is None:
         duration_h = _flagship_bottom_hours()

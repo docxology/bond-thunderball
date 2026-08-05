@@ -312,9 +312,11 @@ class MissionProvider:
             sonar_params["max_range_nm"],
         )
 
-        # Navigation: the return leg duration is the dive's air-budget bottom
-        # time (hours), so the drift assessment uses the planned dive itself.
-        bottom_hours = gas_duration_min / 60.0
+        # Navigation: the team is in the water for the dive's *planned* bottom
+        # time — min(air limit, NDL) as reported by plan_dive — not for the
+        # air-budget limit it never gets to fly. Using gas_duration_min here
+        # would overstate the drift whenever decompression binds first.
+        bottom_hours = dive.bottom_minutes / 60.0
         nav = assess_navigation(
             desired_track_deg=nav_params["track_deg"],
             speed_knots=nav_params["speed_knots"],
@@ -356,6 +358,7 @@ class MissionProvider:
                 "dive_gas_margin_l": round(dive.gas_margin_l(), 1),
                 "dive_deco_stops": len(dive.deco_stops),
                 "convoy_largest_gap_deg": round(convoy.largest_gap_deg, 2),
+                "convoy_uncovered_sector_deg": round(convoy.uncovered_sector_deg, 2),
                 "convoy_coverage": round(convoy.coverage, 4),
                 "convoy_score": round(convoy.score, 4),
                 "convoy_status": convoy.status.label,

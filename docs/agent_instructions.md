@@ -38,7 +38,10 @@ suite-level guardrails apply on top of everything here.
    dive numbers — that is what stops the manuscript drifting from the mission.
 6. **Computed manuscript tokens.** Every numeric result in prose is a token
    computed in `manuscript_variables.py`. Never hardcode a metric in prose. The
-   cross-reference is checked in both directions.
+   cross-reference is checked in both directions:
+   `test_all_manuscript_tokens_are_generated` fails on a referenced token with
+   no value, `test_no_generated_token_is_orphaned` fails on a generated token
+   no section references.
 7. **Type hints + docstrings** on all public functions. If a docstring states a
    formula, a raised exception, or a default's provenance, it must be true — a
    wrong docstring is a defect, not a cosmetic issue.

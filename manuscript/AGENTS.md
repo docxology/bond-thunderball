@@ -14,8 +14,10 @@ package.
    scans `manuscript/[0-9]*.md` and fails if any `{{TOKEN}}` lacks a generated
    value. Reference/guide files (README.md, AGENTS.md, SYNTAX.md) legitimately
    contain literal `{{TOKEN}}` placeholders and are excluded from the scan.
-   The reverse direction matters too: a token generated but never referenced is
-   dead weight, so keep `generate_variables()` and the prose in step.
+   The reverse direction is enforced by
+   `tests/test_manuscript_variables.py::test_no_generated_token_is_orphaned`,
+   which fails on any token `generate_variables()` emits that no numbered
+   section references — so keep `generate_variables()` and the prose in step.
 4. Verify: read `output/data/manuscript_variables.json` after running
    `scripts/z_generate_manuscript_variables.py`.
 

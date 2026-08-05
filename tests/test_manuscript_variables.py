@@ -126,17 +126,35 @@ def test_generate_variables_missing_screen_raises() -> None:
         generate_variables(config=config)
 
 
-def test_all_manuscript_tokens_are_generated() -> None:
-    """Live cross-reference gate: every {{TOKEN}} in numbered prose sections
-    must have a generated value."""
-    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+TOKEN_RE = re.compile(r"\{\{([A-Z_][A-Z0-9_]*)\}\}")
+
+
+def _tokens_referenced_in_prose() -> set[str]:
+    """Every ``{{TOKEN}}`` referenced in the numbered manuscript sections."""
     manuscript = PROJECT_ROOT / "manuscript"
-    token_re = re.compile(r"\{\{([A-Z_][A-Z0-9_]*)\}\}")
     found: set[str] = set()
     for section in sorted(manuscript.glob("[0-9]*.md")):
-        found.update(token_re.findall(section.read_text(encoding="utf-8")))
-    for token in sorted(found):
+        found.update(TOKEN_RE.findall(section.read_text(encoding="utf-8")))
+    return found
+
+
+def test_all_manuscript_tokens_are_generated() -> None:
+    """Forward direction of the cross-reference gate: every {{TOKEN}} in
+    numbered prose sections must have a generated value."""
+    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+    for token in sorted(_tokens_referenced_in_prose()):
         assert token in variables, f"manuscript token {token} has no generated value"
+
+
+def test_no_generated_token_is_orphaned() -> None:
+    """Reverse direction of the cross-reference gate, which the docs promise
+    and nothing used to enforce: every token ``generate_variables()`` emits
+    must actually be referenced in a numbered section. An orphan token fails
+    here as surely as an ungenerated one fails the forward check."""
+    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+    referenced = _tokens_referenced_in_prose()
+    orphans = sorted(set(variables) - referenced)
+    assert not orphans, f"generated but never referenced in prose: {orphans}"
 
 
 def test_config_relative_points_to_manuscript_config() -> None:
@@ -188,16 +206,53 @@ def test_dive_tokens_agree_with_the_domain_core() -> None:
     assert float(variables["RESULT_DIVE_GAS_MARGIN_L"]) > 0.0
 
 
-def test_manuscript_token_gate_actually_scans_something() -> None:
-    """Guard the guard: the cross-reference test is vacuous if no section file
-    is read or no token is found."""
-    import re
+def test_drift_token_is_taken_over_the_planned_bottom_time() -> None:
+    """The drift token must be the drift over the bottom time the team flies
+    (min(air, NDL) from plan_dive), not over the longer air-budget limit.
 
+    The two durations differ by ~2.7x for this profile, so this test fails the
+    moment the generator swaps one for the other."""
+    from thunderball.current_navigation import drift_distance
+    from thunderball.dive_planner import bottom_time_from_air, plan_dive
+
+    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+    mission = load_mission_config(PROJECT_ROOT)["mission"]
+    recovery = mission["recovery"]
+    navigation = mission["navigation"]
+    dive = plan_dive(
+        depth_m=float(recovery["depth_m"]),
+        cylinder_capacity_l=float(recovery["cylinder_capacity_l"]),
+        fill_pressure_bar=float(recovery["fill_pressure_bar"]),
+        sac_rate_lmin=float(recovery["sac_rate_lmin"]),
+    )
+    drift_knots = float(navigation["current_drift_knots"])
+    planned = drift_distance(drift_knots, dive.bottom_minutes / 60.0)
+    air_limited = drift_distance(
+        drift_knots,
+        bottom_time_from_air(
+            dive.air_volume_l,
+            float(recovery["sac_rate_lmin"]),
+            float(recovery["depth_m"]),
+        )
+        / 60.0,
+    )
+    assert air_limited > planned * 1.5, "the two durations must be distinguishable"
+    assert float(variables["RESULT_NAV_DRIFT_NM"]) == pytest.approx(planned, abs=5e-4)
+    assert float(variables["RESULT_NAV_DRIFT_NM"]) != pytest.approx(
+        air_limited, abs=5e-4
+    )
+
+
+def test_manuscript_token_gate_actually_scans_something() -> None:
+    """Guard the guard: both directions of the cross-reference test are vacuous
+    if no section file is read, no token is found, or nothing is generated."""
     manuscript = PROJECT_ROOT / "manuscript"
     sections = sorted(manuscript.glob("[0-9]*.md"))
     assert len(sections) >= 9, [s.name for s in sections]
-    token_re = re.compile(r"\{\{([A-Z_][A-Z0-9_]*)\}\}")
-    found: set[str] = set()
-    for section in sections:
-        found.update(token_re.findall(section.read_text(encoding="utf-8")))
+    found = _tokens_referenced_in_prose()
     assert len(found) >= 30, sorted(found)
+    variables = generate_variables(project_root=PROJECT_ROOT, now=_fixed_now())
+    assert len(variables) >= 30
+    # Both directions are non-trivial only because both sets are non-empty and
+    # the reverse check compares against the same scanned corpus.
+    assert found & set(variables)

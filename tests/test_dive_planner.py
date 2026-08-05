@@ -83,8 +83,16 @@ def test_buhlmann_mvalue_rejects_zero_slope_coefficient() -> None:
         buhlmann_mvalue(1.013, 1.0, 0.0)
 
 
-def test_ndl_matches_published_zhl16a_no_stop_times() -> None:
-    """The no-stop limits must land in the published ZH-L16A air-table bands.
+def test_ndl_matches_published_no_stop_times() -> None:
+    """The no-stop limits must land in bands around the published U.S. Navy
+    air no-decompression limits: 60 min at 18 m (60 fsw), 20 min at 30 m
+    (100 fsw), 10 min at 40 m (130 fsw), 5 min at 60 m (190 fsw).
+
+    Those limits come from the Navy manual's own EL/VVAL-18 lineage, not from
+    ZH-L16A, so this is a cross-model agreement check rather than a table
+    lookup of the model under test — which is exactly what makes it able to
+    fail. The bands are wide enough to admit Bühlmann-derived recreational
+    tables too, and narrow enough to reject the failure below.
 
     This is the test that catches an M-value or ascent-ceiling transposition:
     evaluating M-values at the bottom ambient pressure instead of the surface

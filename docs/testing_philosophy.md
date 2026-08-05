@@ -29,8 +29,11 @@ package's headline conclusion ("gas, not decompression, binds") was inverted.
 The rules that follow from that:
 
 1. **Anchor physical claims externally.** Assert against published values —
-   Bühlmann's 3.27 bar and 1.28 bar surfacing ceilings, the ZH-L16A no-stop
-   bands at 18/30/40/60 m — not against the implementation's own arithmetic.
+   Bühlmann's 3.27 bar and 1.28 bar surfacing ceilings, and bands around the
+   *U.S. Navy Diving Manual*'s published air no-stop limits (60/20/10/5 min at
+   18/30/40/60 m) — not against the implementation's own arithmetic. Note the
+   Navy limits come from its own EL/VVAL-18 lineage, not from ZH-L16A, which
+   is what makes that anchor an independent check rather than a restatement.
 2. **Prove a knob is consumed.** Do not assert that a parameter has a value;
    change it and assert the output moves. `min_escorts_for_coverage` is tested
    with a looser target (fewer escorts) *and* a narrower arc (more escorts), so
@@ -53,7 +56,7 @@ The rules that follow from that:
 | File | Covers |
 |---|---|
 | `test_dive_planner.py` | Ambient/alveolar pressure, cylinder volume, gas-limited bottom time, the M-value line against published surfacing ceilings, NDL against published no-stop bands, per-compartment loading, deco scheduling (rate-limited and instant-ascent), `plan_dive` across all four binding regimes, stop-pressure gas accounting |
-| `test_convoy_integrity.py` | Angular gaps, largest gap, coverage fraction, the pointwise coverage predicate and its agreement with the aggregate, integrity score/status, the sector ceiling's downgrade-only behaviour, min escorts |
+| `test_convoy_integrity.py` | Angular spacings, largest spacing, the largest uncovered sector (cross-checked against a brute-force sweep of the pointwise predicate, and pinned apart from the spacing on the flagship screen), coverage fraction, the pointwise coverage predicate and its agreement with the aggregate, integrity score/status, the sector ceiling's downgrade-only behaviour, min escorts |
 | `test_submersible_logistics.py` | Power, endurance, range, the analytic optimum against a numerical sweep, the no-hotel-load closed form, range-inverse including the exact-maximum and unattainable cases, mission energy |
 | `test_sonar_detection.py` | Thorp absorption, transmission loss, signal excess, detection range, verdicts |
 | `test_current_navigation.py` | Drift vectors, dead reckoning, course-to-steer, cross-track error, drift limits |

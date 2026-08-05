@@ -4,9 +4,15 @@ Pure domain logic — no infrastructure imports. Given the bearing angles at
 which escort vessels ("the screen") sit around a protected formation, this
 module computes:
 
-* **Angular gaps** — the uncovered sectors between consecutive escorts.
-* **Largest-gap detection** — the single weakest sector and whether it
-  breaches a mission threshold.
+* **Angular gaps** — the angular *spacing* between consecutive escort
+  bearings. Spacing is a property of where the escorts sit; it says nothing
+  on its own about what is watched, because it does not know the detection
+  half-angle.
+* **Largest-gap detection** — the widest such spacing and whether it breaches
+  a mission threshold.
+* **Largest uncovered sector** — the widest arc that *no* escort's detection
+  cone watches. This is the half-angle-aware quantity: a screen whose arcs
+  overlap has a positive largest spacing and a zero largest uncovered sector.
 * **Escort coverage fraction** — what fraction of the 360° perimeter a set of
   escorts defends given each escort's detection half-angle.
 * **Convoy integrity score** — a deterministic 0..1 readiness metric plus a
@@ -30,6 +36,7 @@ __all__ = [
     "integrity_status",
     "is_bearing_covered",
     "largest_gap",
+    "largest_uncovered_sector",
     "min_escorts_for_coverage",
 ]
 
@@ -44,6 +51,10 @@ class IntegrityResult:
     largest_gap_deg: float
     gap_start_deg: float
     gap_end_deg: float
+    #: Widest arc no escort watches, in degrees. Zero when the detection arcs
+    #: overlap all the way round — which is the usual case for a dense screen,
+    #: and is *not* the same as ``largest_gap_deg``.
+    uncovered_sector_deg: float
     coverage: float
     score: float
     status: ConvoyStatus
@@ -58,10 +69,14 @@ class ConvoyStatus:
 
 
 def angular_gaps(bearings_deg: tuple[float, ...]) -> tuple[float, ...]:
-    """Covered-arc gaps (degrees) between consecutive escorts around the circle.
+    """Angular spacings (degrees) between consecutive escorts around the circle.
 
-    Bearings are normalised to ``[0, 360)``; the gap after the last escort
-    wraps back to the first. Returns one gap per escort.
+    Bearings are normalised to ``[0, 360)``; the spacing after the last escort
+    wraps back to the first. Returns one spacing per escort.
+
+    This is bearing geometry only — it does not read any detection half-angle,
+    so a positive spacing does **not** imply an unwatched sector. For the arc
+    that is genuinely unwatched, use :func:`largest_uncovered_sector`.
     """
     if not bearings_deg:
         return ()
@@ -77,7 +92,14 @@ def angular_gaps(bearings_deg: tuple[float, ...]) -> tuple[float, ...]:
 
 
 def largest_gap(bearings_deg: tuple[float, ...]) -> tuple[float, float, float]:
-    """Return ``(gap_deg, start_deg, end_deg)`` of the largest uncovered sector."""
+    """Return ``(gap_deg, start_deg, end_deg)`` of the widest escort *spacing*.
+
+    The widest angular interval between two adjacent escort bearings. It takes
+    no half-angle argument and therefore cannot say whether that interval is
+    watched: with eight escorts 45° apart and a 30° half-angle the widest
+    spacing is 45° while the uncovered sector is 0°. Use
+    :func:`largest_uncovered_sector` for the unwatched arc.
+    """
     if not bearings_deg:
         return FULL_CIRCLE, 0.0, 360.0
     normalized = sorted(b % FULL_CIRCLE for b in bearings_deg)
@@ -95,17 +117,19 @@ def largest_gap(bearings_deg: tuple[float, ...]) -> tuple[float, float, float]:
     return best_size, best_start % FULL_CIRCLE, best_end % FULL_CIRCLE
 
 
-def coverage_fraction(
-    bearings_deg: tuple[float, ...], half_angle_deg: float = 30.0
-) -> float:
-    """Fraction of the 360° perimeter an escort screen defends.
+def _merged_cover(
+    bearings_deg: tuple[float, ...], half_angle_deg: float
+) -> list[tuple[float, float]]:
+    """Union of the escorts' detection arcs as sorted intervals in ``[0, 360]``.
 
-    Each escort covers an arc of ``2 * half_angle_deg`` around its bearing;
-    overlapping arcs are unioned. Returns a value in ``[0, 1]``.
+    Arcs crossing the 0/360 seam are split into two intervals, so the result is
+    a disjoint, ascending cover of the compass. Single source of the union
+    geometry: both :func:`coverage_fraction` and
+    :func:`largest_uncovered_sector` read it, so they cannot disagree.
     """
-    if not bearings_deg:
-        return 0.0
     half = abs(half_angle_deg)
+    if half >= FULL_CIRCLE / 2.0:
+        return [(0.0, FULL_CIRCLE)]
     covered: list[tuple[float, float]] = []
     for bearing in bearings_deg:
         start = (bearing - half) % FULL_CIRCLE
@@ -123,8 +147,60 @@ def coverage_fraction(
             merged[-1] = (merged[-1][0], max(merged[-1][1], end))
         else:
             merged.append((start, end))
-    total = sum(end - start for start, end in merged)
+    return merged
+
+
+def coverage_fraction(
+    bearings_deg: tuple[float, ...], half_angle_deg: float = 30.0
+) -> float:
+    """Fraction of the 360° perimeter an escort screen defends.
+
+    Each escort covers an arc of ``2 * half_angle_deg`` around its bearing;
+    overlapping arcs are unioned. Returns a value in ``[0, 1]``.
+    """
+    if not bearings_deg:
+        return 0.0
+    total = sum(
+        end - start for start, end in _merged_cover(bearings_deg, half_angle_deg)
+    )
     return min(1.0, total / FULL_CIRCLE)
+
+
+def largest_uncovered_sector(
+    bearings_deg: tuple[float, ...], half_angle_deg: float = 30.0
+) -> tuple[float, float, float]:
+    """Return ``(size_deg, start_deg, end_deg)`` of the widest *unwatched* arc.
+
+    Unlike :func:`largest_gap`, this reads ``half_angle_deg``: it takes the
+    union of the escorts' detection arcs and returns the widest hole in it,
+    joining a hole that runs across the 0/360 seam. ``0.0`` means every bearing
+    is watched by at least one escort — the arcs overlap and there is no
+    uncovered sector at all, whatever the escort spacing is.
+
+    An empty screen watches nothing, so it returns the full circle.
+    """
+    if not bearings_deg:
+        return FULL_CIRCLE, 0.0, FULL_CIRCLE
+    merged = _merged_cover(bearings_deg, half_angle_deg)
+    holes: list[tuple[float, float]] = []
+    prev_end = 0.0
+    for start, end in merged:
+        if start > prev_end:
+            holes.append((prev_end, start))
+        prev_end = max(prev_end, end)
+    if prev_end < FULL_CIRCLE:
+        holes.append((prev_end, FULL_CIRCLE))
+    if not holes:
+        return 0.0, 0.0, 0.0
+    if len(holes) > 1 and holes[0][0] == 0.0 and holes[-1][1] == FULL_CIRCLE:
+        # The first and last holes are one arc running across the 0/360 seam.
+        first = holes.pop(0)
+        last = holes.pop()
+        holes.append((last[0], first[1] + FULL_CIRCLE))
+    size, start = max((end - start, start) for start, end in holes)
+    if size >= FULL_CIRCLE:
+        return FULL_CIRCLE, 0.0, FULL_CIRCLE
+    return size, start % FULL_CIRCLE, (start + size) % FULL_CIRCLE
 
 
 def is_bearing_covered(
@@ -184,6 +260,12 @@ def assess_convoy(
 ) -> IntegrityResult:
     """Full convoy integrity assessment over an escort screen.
 
+    Reports both angular quantities, which are different things:
+    ``largest_gap_deg`` is the widest *spacing* between adjacent escorts (no
+    half-angle involved) and drives the score, while ``uncovered_sector_deg``
+    is the widest arc no escort actually watches — ``0.0`` whenever the
+    detection arcs overlap all the way round.
+
     ``marginal_under_deg`` is a hard gap ceiling layered *over* the continuous
     score: a screen whose largest gap reaches it is downgraded from ``ok`` to
     ``marginal`` even when the sigmoid score would have passed it. It exists so
@@ -201,6 +283,7 @@ def assess_convoy(
         The full :class:`IntegrityResult` for the screen.
     """
     gap, start, end = largest_gap(bearings_deg)
+    uncovered, _, _ = largest_uncovered_sector(bearings_deg, half_angle_deg)
     coverage = coverage_fraction(bearings_deg, half_angle_deg)
     score = integrity_score(gap, coverage)
     status = integrity_status(score)
@@ -225,6 +308,7 @@ def assess_convoy(
         largest_gap_deg=gap,
         gap_start_deg=start,
         gap_end_deg=end,
+        uncovered_sector_deg=uncovered,
         coverage=coverage,
         score=score,
         status=status,

@@ -23,10 +23,16 @@ a working dive at this depth.
 ## Convoy integrity results
 
 The escort screen is placed at bearings {{CONFIG_ESCORT_BEARINGS}} degrees
-with a detection half-angle of {{CONFIG_HALF_ANGLE_DEG}} degrees. The largest
-uncovered sector is **{{RESULT_LARGEST_GAP_DEG}} degrees**, the total escort
-coverage is **{{RESULT_COVERAGE}}**, and the resulting integrity score is
-**{{RESULT_CONVOY_SCORE}}**, rated **{{RESULT_CONVOY_STATUS}}**. To reach the
+with a detection half-angle of {{CONFIG_HALF_ANGLE_DEG}} degrees. The widest
+*spacing* between adjacent escorts is **{{RESULT_LARGEST_GAP_DEG}} degrees**,
+but spacing is not exposure: each escort watches {{CONFIG_HALF_ANGLE_DEG}}
+degrees either side of its bearing, so the arcs overlap and the largest
+genuinely *uncovered* sector is **{{RESULT_UNCOVERED_SECTOR_DEG}} degrees**,
+with total escort coverage **{{RESULT_COVERAGE}}**. Nothing around this screen
+is unwatched. The integrity score is **{{RESULT_CONVOY_SCORE}}**, rated
+**{{RESULT_CONVOY_STATUS}}**; the score is driven by the spacing rather than by
+the uncovered sector, which is what keeps it sensitive to a screen thinning out
+before any hole actually opens. To reach the
 {{CONFIG_COVERAGE_TARGET}} coverage target a uniform screen needs at least
 **{{RESULT_MIN_ESCORTS_90PCT}} escorts**.
 
@@ -58,11 +64,14 @@ The return leg makes good a track of {{CONFIG_NAV_TRACK_DEG}} degrees at
 {{CONFIG_CURRENT_SET_DEG}} degrees at {{CONFIG_CURRENT_DRIFT_KNOTS}} knots.
 Course-to-steer corrects the heading to **{{RESULT_NAV_HEADING_DEG}} degrees**
 with a ground speed of **{{RESULT_NAV_GROUND_SPEED_KNOTS}} knots**. Over the
-dive's bottom time the current sweeps the team **{{RESULT_NAV_DRIFT_NM}}
-nautical miles** — {{RESULT_NAV_WITHIN_RECOVERY}} within the
-{{CONFIG_RECOVERY_RADIUS_NM}}-nautical-mile recovery radius (@fig:drift).
+planned bottom time of {{RESULT_DIVE_BOTTOM_MIN}} minutes — the time the team
+is actually in the water, which is the decompression limit here and not the
+longer {{RESULT_AIR_DURATION_MIN}}-minute air budget — the current sweeps the
+team **{{RESULT_NAV_DRIFT_NM}} nautical miles**. Inside the
+{{CONFIG_RECOVERY_RADIUS_NM}}-nautical-mile recovery radius:
+**{{RESULT_NAV_WITHIN_RECOVERY}}** (@fig:drift).
 
-![Set-and-drift geometry over the gas-limited bottom time, computed from the dive parameters rather than pinned to a literal.](figures/drift_geometry.png){#fig:drift}
+![Set-and-drift geometry over the planned bottom time, computed from the dive parameters rather than pinned to a literal.](figures/drift_geometry.png){#fig:drift}
 
 ## Interdiction results
 
@@ -70,7 +79,11 @@ The threat track (course {{CONFIG_THREAT_COURSE_DEG}} degrees at
 {{CONFIG_THREAT_SPEED_KNOTS}} knots, closing at
 **{{RESULT_CLOSING_KNOTS}} knots**) has its closest point of approach at
 **{{RESULT_CPA_DIST_NM}} nautical miles** after **{{RESULT_CPA_TIME_H}}
-hours**. Crossing the {{RESULT_LARGEST_GAP_DEG}}-degree screen gap at
+hours**. That CPA is outside the
+{{CONFIG_MIN_SEPARATION_NM}}-nautical-mile minimum separation, and the CPA is
+by construction the smallest range the threat ever reaches, so minimum
+separation is never breached and the verdict turns on the gap crossing alone.
+Crossing the {{RESULT_LARGEST_GAP_DEG}}-degree inter-escort sector at
 {{CONFIG_SCREEN_RADIUS_NM}} nautical miles takes **{{RESULT_PENETRATION_H}}
 hours**, against an escort reaction time of {{CONFIG_ESCORT_REACTION_H}}
 hours; the screen is rated **{{RESULT_INTERDICTION_STATUS}}**.

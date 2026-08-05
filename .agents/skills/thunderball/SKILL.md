@@ -58,6 +58,8 @@ uv run python scripts/run_mission.py       # full five-stage mission
   bare sibling import and the gate fails. The editable install is what makes
   `import thunderball` work.
 - Add manuscript tokens to `generate_variables()` **and** reference them in a
-  numbered section; the cross-reference is checked in both directions.
+  numbered section; the cross-reference is checked in both directions
+  (forward `test_all_manuscript_tokens_are_generated`, reverse
+  `test_no_generated_token_is_orphaned`).
 - Never assert a formula against a restatement of itself. Anchor physical
   claims to published values — see `docs/testing_philosophy.md`.

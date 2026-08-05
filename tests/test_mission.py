@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from bond_api.protocol import (
     MissionBrief,
     MissionOutcome,
@@ -70,6 +71,29 @@ def test_execute_is_successful_and_provenanced() -> None:
     assert outcome.results["interdiction_status"] == "held"
     assert outcome.results["sonar_detection_range_nm"] > 0.0
     assert outcome.results["nav_drift_exceeds_recovery"] is False
+
+
+def test_execute_drifts_over_the_planned_bottom_time() -> None:
+    """The mission's drift must be taken over the bottom time actually flown
+    (min(air, NDL)), and must agree with the manuscript generator — the two
+    read the same plan_dive output, so they cannot disagree."""
+    from thunderball.current_navigation import drift_distance
+    from thunderball.manuscript_variables import generate_variables
+    from thunderball.mission import CURRENT_DRIFT_KNOTS
+
+    results = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief())).results
+    expected = drift_distance(
+        CURRENT_DRIFT_KNOTS, results["dive_bottom_minutes"] / 60.0
+    )
+    assert results["nav_drift_nm"] == pytest.approx(expected, abs=5e-4)
+    # And the longer air-budget duration would give a materially different
+    # answer, so this assertion is not satisfied by both choices.
+    air_drift = drift_distance(CURRENT_DRIFT_KNOTS, results["air_duration_min"] / 60.0)
+    assert air_drift > expected * 1.5
+    variables = generate_variables()
+    assert float(variables["RESULT_NAV_DRIFT_NM"]) == pytest.approx(
+        results["nav_drift_nm"], abs=5e-4
+    )
 
 
 def test_execute_dive_results_agree_with_the_domain_core() -> None:

@@ -51,10 +51,17 @@ manuscript's token generator call `plan_dive`, so the two cannot disagree.
 ## Convoy integrity
 
 Convoy analysis in `src/thunderball/convoy_integrity.py` treats the escort
-screen as a set of bearing angles around the protected formation. Between
-consecutive escorts there is an uncovered **angular gap**; the largest gap is
-the weakest sector a hostile interceptor can exploit. Each escort defends an
-arc of `2 * half_angle` around its bearing, and **coverage fraction** is the
+screen as a set of bearing angles around the protected formation. Two angular
+quantities are reported and they are not the same thing. The **angular gap**
+is the *spacing* between consecutive escort bearings; the largest gap measures
+how thinly the screen is spread and is computed from bearings alone, with no
+knowledge of any detection half-angle. The **largest uncovered sector** is the
+widest arc no escort watches, which does read the half-angle: each escort
+defends an arc of `2 * half_angle` around its bearing, and a screen whose arcs
+overlap has a positive largest spacing and a zero uncovered sector. Reporting
+the spacing as though it were an unwatched arc would overstate the screen's
+exposure, so the two are computed and reported separately
+(`largest_gap` and `largest_uncovered_sector`). **Coverage fraction** is the
 unioned defended arc divided by 360°. Its pointwise companion
 `is_bearing_covered` answers whether one specific bearing falls inside any
 escort's arc, measuring separation on the circle so the 0/360° seam needs no
@@ -107,8 +114,9 @@ vector triangle: the current's component perpendicular to the desired track
 is cancelled by a component of own velocity, `theta = asin(-c_perp / v)`,
 giving the heading that makes good the track. **Cross-track error** is the
 signed perpendicular distance off the track line, and the drift distance over
-the dive's bottom time is checked against the recovery radius
-(@fig:drift).
+the dive's *planned* bottom time — `min(air limit, NDL)` as reported by
+`plan_dive`, which is the time the team is in the water, not the longer air
+budget it never flies — is checked against the recovery radius (@fig:drift).
 
 ## Convoy interdiction
 
@@ -118,7 +126,14 @@ threat track and the convoy follows from relative position and velocity:
 `t_cpa = max(0, -dot(rel_pos, rel_vel) / |rel_vel|²)` and
 `d_cpa = |rel_pos + rel_vel t_cpa|`, with closing speed derived from the same
 dot product. The **screen penetration time** is the chord across the largest
-gap (`2 r sin(gap/2)`) divided by the interceptor's speed. The **interdiction
-status** combines these: `breached` when the CPA is inside the minimum
-separation, `held` when escorts react before the threat closes or crosses the
-gap, and `penetrated` otherwise.
+inter-escort spacing (`2 r sin(gap/2)`) divided by the interceptor's speed.
+
+**Time to minimum separation** comes from the constant-velocity range profile
+`range(t)² = d_cpa² + |rel_vel|² (t - t_cpa)²`, so the range first falls to a
+limit `R` at `t = t_cpa - sqrt(R² - d_cpa²) / |rel_vel|`. When `d_cpa >= R`
+that root does not exist and the time is infinite: the CPA is by definition
+the smallest range the threat ever achieves, so a CPA outside the limit means
+the limit is never reached at all. The **interdiction status** is then a race
+between three times: `breached` when the threat reaches minimum separation
+before the escorts' reaction time, `penetrated` when the gap chord is crossed
+before it, and `held` otherwise — including a diverging threat.

@@ -9,7 +9,9 @@ from thunderball.convoy_integrity import (
     coverage_fraction,
     integrity_score,
     integrity_status,
+    is_bearing_covered,
     largest_gap,
+    largest_uncovered_sector,
     min_escorts_for_coverage,
 )
 
@@ -45,6 +47,108 @@ def test_largest_gap_detects_weak_sector() -> None:
 def test_largest_gap_empty_returns_full_circle() -> None:
     gap, _, _ = largest_gap(())
     assert gap == pytest.approx(360.0)
+
+
+def _widest_uncovered_run_deg(
+    bearings: tuple[float, ...], half_angle_deg: float, step: float = 0.05
+) -> float:
+    """Widest unwatched arc measured by brute-force sweep of the pointwise
+    predicate — an independent oracle for :func:`largest_uncovered_sector`,
+    computed without touching the interval arithmetic under test."""
+    samples = [i * step for i in range(int(360.0 / step))]
+    covered = [is_bearing_covered(t, bearings, half_angle_deg) for t in samples]
+    if all(covered):
+        return 0.0
+    if not any(covered):
+        return 360.0
+    # Rotate so the sweep starts on a covered sample; a run then never wraps.
+    first = covered.index(True)
+    rotated = covered[first:] + covered[:first]
+    best = run = 0
+    for hit in rotated:
+        run = 0 if hit else run + 1
+        best = max(best, run)
+    return best * step
+
+
+def test_largest_gap_is_spacing_not_coverage_on_the_flagship_screen() -> None:
+    """The exact defect this function pair exists to keep apart: eight escorts
+    45 deg apart have a 45 deg largest *spacing* and no uncovered sector at
+    all, because each 30 deg half-angle arc overlaps its neighbours."""
+    screen = tuple(45.0 * i for i in range(8))
+    gap, _, _ = largest_gap(screen)
+    uncovered, _, _ = largest_uncovered_sector(screen, 30.0)
+    assert gap == pytest.approx(45.0)
+    assert uncovered == 0.0
+    assert coverage_fraction(screen, 30.0) == pytest.approx(1.0)
+    assert _widest_uncovered_run_deg(screen, 30.0) == 0.0
+
+
+def test_largest_uncovered_sector_finds_the_real_hole() -> None:
+    # Escorts at 0 and 90 with a 30 deg half-angle cover [330,30] and [60,120].
+    # Holes are 30..60 (30 deg) and 120..330 (210 deg).
+    screen = (0.0, 90.0)
+    size, start, end = largest_uncovered_sector(screen, 30.0)
+    assert size == pytest.approx(210.0)
+    assert start == pytest.approx(120.0)
+    assert end == pytest.approx(330.0)
+    assert not is_bearing_covered((start + end) / 2.0, screen, 30.0)
+    assert size == pytest.approx(_widest_uncovered_run_deg(screen, 30.0), abs=0.1)
+
+
+def test_largest_uncovered_sector_joins_a_hole_across_the_seam() -> None:
+    # Escorts at 90 and 180 leave a hole running 210 -> 360 -> 60: one arc.
+    screen = (90.0, 180.0)
+    size, start, end = largest_uncovered_sector(screen, 30.0)
+    assert size == pytest.approx(210.0)
+    assert start == pytest.approx(210.0)
+    assert end == pytest.approx(60.0)
+    assert not is_bearing_covered(0.0, screen, 30.0)
+    assert size == pytest.approx(_widest_uncovered_run_deg(screen, 30.0), abs=0.1)
+
+
+def test_largest_uncovered_sector_shrinks_as_the_half_angle_grows() -> None:
+    screen = (0.0, 120.0, 240.0)
+    wide, _, _ = largest_uncovered_sector(screen, 20.0)
+    narrow, _, _ = largest_uncovered_sector(screen, 50.0)
+    assert wide == pytest.approx(80.0)
+    assert narrow == pytest.approx(20.0)
+    assert largest_uncovered_sector(screen, 60.0)[0] == 0.0
+    # largest_gap is blind to all of this: same screen, same answer every time.
+    assert largest_gap(screen)[0] == pytest.approx(120.0)
+
+
+def test_largest_uncovered_sector_edges() -> None:
+    assert largest_uncovered_sector((), 30.0)[0] == pytest.approx(360.0)
+    # A half-angle covering the whole compass leaves nothing uncovered.
+    assert largest_uncovered_sector((0.0,), 180.0)[0] == 0.0
+    # A zero-width arc watches nothing.
+    size, start, end = largest_uncovered_sector((0.0,), 0.0)
+    assert size == pytest.approx(360.0)
+    assert (start, end) == (0.0, 360.0)
+
+
+def test_largest_uncovered_sector_never_exceeds_the_uncovered_total() -> None:
+    """The widest single hole cannot be wider than all the uncovered arc."""
+    for screen, half in (
+        ((0.0, 90.0), 30.0),
+        ((0.0, 45.0, 90.0, 200.0), 25.0),
+        ((10.0, 20.0, 30.0), 5.0),
+        ((0.0, 120.0, 240.0), 59.0),
+    ):
+        size, _, _ = largest_uncovered_sector(screen, half)
+        total_uncovered = 360.0 * (1.0 - coverage_fraction(screen, half))
+        assert size <= total_uncovered + 1e-9
+        assert size == pytest.approx(_widest_uncovered_run_deg(screen, half), abs=0.1)
+
+
+def test_assess_convoy_reports_both_angular_quantities() -> None:
+    flagship = assess_convoy(tuple(45.0 * i for i in range(8)), 30.0)
+    assert flagship.largest_gap_deg == pytest.approx(45.0)
+    assert flagship.uncovered_sector_deg == 0.0
+    thin = assess_convoy((0.0, 90.0), 30.0)
+    assert thin.largest_gap_deg == pytest.approx(270.0)
+    assert thin.uncovered_sector_deg == pytest.approx(210.0)
 
 
 def test_coverage_fraction_single_escort() -> None:

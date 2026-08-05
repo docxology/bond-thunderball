@@ -81,14 +81,26 @@ def test_convoy_screen_figure_depends_on_the_bearings_it_is_given(tmp_path) -> N
 def test_drift_geometry_duration_defaults_to_the_domain_bottom_time(
     tmp_path,
 ) -> None:
-    """The default duration must come from the dive math, not a literal."""
-    from thunderball.dive_planner import bottom_time_from_air
+    """The default duration must come from the dive math, not a literal — and
+    it must be the *planned* bottom time the team actually flies, min(air,
+    NDL), not the longer air-budget limit decompression pre-empts."""
+    from thunderball.dive_planner import bottom_time_from_air, plan_dive
     from thunderball.figures import FLAGSHIP_DIVE, _flagship_bottom_hours
 
     capacity_l, fill_bar, sac_lmin, depth_m = FLAGSHIP_DIVE
-    expected = bottom_time_from_air(capacity_l * fill_bar, sac_lmin, depth_m) / 60.0
+    plan = plan_dive(
+        depth_m=depth_m,
+        cylinder_capacity_l=capacity_l,
+        fill_pressure_bar=fill_bar,
+        sac_rate_lmin=sac_lmin,
+    )
+    expected = plan.bottom_minutes / 60.0
     assert _flagship_bottom_hours() == expected
-    assert 0.3 < expected < 0.6
+    # Decompression binds first here, so the air budget is strictly longer:
+    # the two durations are distinguishable and the default is the right one.
+    air_hours = bottom_time_from_air(capacity_l * fill_bar, sac_lmin, depth_m) / 60.0
+    assert air_hours > expected
+    assert 0.1 < expected < 0.3
     # The default path and the explicit path render the same figure.
     default = plot_drift_geometry(figures_out=str(tmp_path / "default"))
     explicit = plot_drift_geometry(

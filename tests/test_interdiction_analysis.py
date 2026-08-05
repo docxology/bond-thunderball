@@ -24,6 +24,14 @@ def test_cpa_crossing_tracks() -> None:
     assert cpa.closing_knots > 0.0  # the threat is closing
 
 
+def test_cpa_reports_the_relative_speed_magnitude() -> None:
+    # Head-on: own 000 at 10 kn, threat 180 at 20 kn -> |v_rel| = 30 kn.
+    cpa = closest_point_of_approach((0.0, 0.0), 0.0, 10.0, (0.0, 12.0), 180.0, 20.0)
+    assert cpa.relative_speed_knots == pytest.approx(30.0)
+    assert cpa.closing_knots == pytest.approx(30.0)
+    assert cpa.t_cpa_h == pytest.approx(12.0 / 30.0)
+
+
 def test_cpa_parallel_tracks_stationary_relative_motion() -> None:
     # Identical courses and speeds: relative velocity zero; CPA = initial
     # separation, t = 0.
@@ -31,6 +39,7 @@ def test_cpa_parallel_tracks_stationary_relative_motion() -> None:
     assert cpa.t_cpa_h == 0.0
     assert cpa.d_cpa_nm == pytest.approx(5.0)
     assert cpa.closing_knots == pytest.approx(0.0)
+    assert cpa.relative_speed_knots == pytest.approx(0.0)
 
 
 def test_cpa_diverging_threat_clamps_to_now() -> None:
@@ -72,52 +81,87 @@ def test_screen_penetration_time_validates() -> None:
         screen_penetration_time(45.0, 2.0, 0.0)
 
 
-def test_time_to_minimum_separation() -> None:
-    t = time_to_minimum_separation(5.0, 10.0, 1.0)
-    assert t == pytest.approx(0.4)
+def test_time_to_minimum_separation_matches_the_range_profile() -> None:
+    """The returned time must be the instant the *real* range hits the limit.
+
+    The oracle is the raw track geometry: step both vessels forward to the
+    returned time and measure the separation directly. If the formula were the
+    old margin-over-closing-rate quotient this would not land on the limit.
+    """
+    own = (0.0, 0.0)
+    threat = (5.0, 3.0)
+    cpa = closest_point_of_approach(own, 45.0, 12.0, threat, 225.0, 20.0)
+    assert cpa.d_cpa_nm < 2.0  # the tracks really do come inside the limit
+    t = time_to_minimum_separation(
+        cpa.d_cpa_nm, cpa.t_cpa_h, cpa.relative_speed_knots, 2.0
+    )
+    assert 0.0 < t < cpa.t_cpa_h
+
+    def separation_at(hours: float) -> float:
+        own_e = own[0] + 12.0 * math.sin(math.radians(45.0)) * hours
+        own_n = own[1] + 12.0 * math.cos(math.radians(45.0)) * hours
+        thr_e = threat[0] + 20.0 * math.sin(math.radians(225.0)) * hours
+        thr_n = threat[1] + 20.0 * math.cos(math.radians(225.0)) * hours
+        return math.hypot(thr_e - own_e, thr_n - own_n)
+
+    assert separation_at(t) == pytest.approx(2.0, abs=1e-9)
+    # And it is the FIRST crossing: a hair earlier the threat is still outside.
+    assert separation_at(t - 1e-4) > 2.0
 
 
-def test_time_to_minimum_separation_infinite_when_diverging() -> None:
-    assert time_to_minimum_separation(5.0, -2.0, 1.0) == math.inf
-    assert time_to_minimum_separation(0.5, 10.0, 1.0) == math.inf  # already inside
+def test_time_to_minimum_separation_is_infinite_when_the_cpa_stays_outside() -> None:
+    """A CPA outside the limit means the limit is never reached — the CPA is
+    by definition the smallest range the threat ever achieves."""
+    assert time_to_minimum_separation(5.0, 0.4, 10.0, 1.0) == math.inf
+    assert time_to_minimum_separation(1.0, 0.4, 10.0, 1.0) == math.inf
+
+
+def test_time_to_minimum_separation_is_zero_when_already_inside() -> None:
+    # CPA inside the limit and already in the past (t_cpa clamped to 0).
+    assert time_to_minimum_separation(0.5, 0.0, 10.0, 1.0) == 0.0
+    # Zero relative motion with the CPA inside the limit: there now, forever.
+    assert time_to_minimum_separation(0.5, 0.0, 0.0, 1.0) == 0.0
 
 
 def test_time_to_minimum_separation_validates() -> None:
     with pytest.raises(ValueError):
-        time_to_minimum_separation(-1.0, 10.0, 1.0)
+        time_to_minimum_separation(-1.0, 0.4, 10.0, 1.0)
     with pytest.raises(ValueError):
-        time_to_minimum_separation(5.0, 10.0, 0.0)
+        time_to_minimum_separation(5.0, -0.4, 10.0, 1.0)
+    with pytest.raises(ValueError):
+        time_to_minimum_separation(5.0, 0.4, -10.0, 1.0)
+    with pytest.raises(ValueError):
+        time_to_minimum_separation(5.0, 0.4, 10.0, 0.0)
 
 
 def test_interdiction_status_breached() -> None:
-    assert interdiction_status(0.5, 20.0, 1.0, 0.05, 0.1) == "breached"
+    # Minimum separation reached in 0.01 h, escorts need 0.05 h.
+    assert interdiction_status(0.01, 0.1, 0.05, 20.0) == "breached"
 
 
 def test_interdiction_status_held_when_escorts_react_in_time() -> None:
-    # d_cpa 3.34, closing 23.3 → t_minsep = (3.34-1.0)/23.3 ≈ 0.10 h >
-    # reaction 0.05 → escorts respond first.
-    assert interdiction_status(3.34, 23.3, 1.0, 0.05, 0.08) == "held"
+    # The threat never comes inside minimum separation (inf) and the gap chord
+    # takes longer to cross than the escorts take to respond.
+    assert interdiction_status(math.inf, 0.08, 0.05, 23.3) == "held"
 
 
 def test_interdiction_status_held_when_diverging() -> None:
-    assert interdiction_status(5.0, -1.0, 1.0, 0.05, 0.1) == "held"
+    assert interdiction_status(math.inf, 0.01, 0.05, -1.0) == "held"
 
 
 def test_interdiction_status_penetrated_when_gap_crossed_first() -> None:
-    # Gap crossing (0.01 h) is much faster than escort reaction (0.5 h) and
-    # the threat still closes before escorts respond.
-    assert interdiction_status(3.34, 23.3, 1.0, 0.5, 0.01) == "penetrated"
+    # Gap crossing (0.01 h) is faster than escort reaction (0.5 h), and the
+    # threat never reaches minimum separation, so this is penetration.
+    assert interdiction_status(math.inf, 0.01, 0.5, 23.3) == "penetrated"
 
 
 def test_interdiction_status_validates() -> None:
     with pytest.raises(ValueError):
-        interdiction_status(-0.1, 20.0, 1.0, 0.05, 0.1)
+        interdiction_status(-0.1, 0.1, 0.05, 20.0)
     with pytest.raises(ValueError):
-        interdiction_status(3.34, 23.3, 0.0, 0.05, 0.1)
+        interdiction_status(0.1, 0.1, -0.05, 20.0)
     with pytest.raises(ValueError):
-        interdiction_status(3.34, 23.3, 1.0, -0.05, 0.1)
-    with pytest.raises(ValueError):
-        interdiction_status(3.34, 23.3, 1.0, 0.05, 0.0)
+        interdiction_status(0.1, 0.0, 0.05, 20.0)
 
 
 def test_assess_interdiction_canonical_held() -> None:
@@ -171,28 +215,13 @@ def test_assess_interdiction_breached_close_threat() -> None:
     assert result.status == "breached"
 
 
-def test_slow_gap_crossing_holds_even_when_min_separation_is_imminent() -> None:
-    """The penetration-time branch: escorts hold if the gap takes longer to
-    cross than their reaction time, even when the CPA closes first."""
-    # to-min-sep = (2.0 - 1.0) / 100.0 = 0.01 h, below the 0.5 h reaction time,
-    # so the first `held` rule fails; the 2 h gap crossing then carries it.
-    status = interdiction_status(
-        d_cpa_nm=2.0,
-        closing_knots=100.0,
-        min_separation_nm=1.0,
-        reaction_time_h=0.5,
-        penetration_time_h=2.0,
-    )
-    assert status == "held"
-    # Shrinking the crossing below the reaction time flips it to penetrated,
-    # proving the branch is decided by penetration time and nothing else.
-    assert (
-        interdiction_status(
-            d_cpa_nm=2.0,
-            closing_knots=100.0,
-            min_separation_nm=1.0,
-            reaction_time_h=0.5,
-            penetration_time_h=0.1,
-        )
-        == "penetrated"
-    )
+def test_slow_gap_crossing_holds_even_when_min_separation_is_late() -> None:
+    """The penetration-time branch decides when the min-separation race is won:
+    a crossing slower than the reaction time holds, a faster one penetrates."""
+    assert interdiction_status(2.0, 2.0, 0.5, 100.0) == "held"
+    assert interdiction_status(2.0, 0.1, 0.5, 100.0) == "penetrated"
+
+
+def test_a_breach_outranks_a_penetration() -> None:
+    """Both races lost: the verdict is the more severe one."""
+    assert interdiction_status(0.001, 0.001, 0.5, 100.0) == "breached"

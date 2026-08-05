@@ -40,6 +40,7 @@ from .convoy_integrity import (
     integrity_score,
     integrity_status,
     largest_gap,
+    largest_uncovered_sector,
     min_escorts_for_coverage,
 )
 from .current_navigation import (
@@ -136,6 +137,7 @@ __all__ = [
     "integrity_status",
     "interdiction_status",
     "largest_gap",
+    "largest_uncovered_sector",
     "min_escorts_for_coverage",
     "optimal_range_speed",
     "plan_decompression",

@@ -34,8 +34,14 @@ the implementation's own arithmetic:
 
 * Bühlmann surfacing ceilings — 3.27 bar for the fastest compartment, 1.28 bar
   for the slowest [@buehlmann1984].
-* No-decompression limits at 18, 30, 40 and 60 m, asserted to fall inside the
-  published ZH-L16A air-table bands [@usnavydiving2016].
+* No-decompression limits at 18, 30, 40 and 60 m, asserted to fall inside
+  bands bracketing the *U.S. Navy Diving Manual*'s published air
+  no-decompression limits of 60, 20, 10 and 5 minutes at those depths
+  [@usnavydiving2016]. The Navy manual publishes limits from its own
+  EL/VVAL-18 model lineage, not Bühlmann tables, so this anchor is a
+  cross-model agreement check — a ZH-L16A implementation landing inside a band
+  around an independently derived operational limit — and not a comparison of
+  ZH-L16A against itself.
 * The analytic optimal-range speed, cross-checked against a dense numerical
   sweep of the range curve.
 * The pointwise coverage predicate, cross-checked against the aggregate
