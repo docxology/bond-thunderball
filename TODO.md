@@ -149,3 +149,73 @@ this session.
 | Finding | Where it now stands |
 |---|---|
 | **Byte-identical regeneration was false.** `manuscript_variables.py` defaulted `GENERATION_TIMESTAMP` to `datetime.now(timezone.utc)`, so every run of `scripts/z_generate_manuscript_variables.py` rewrote `output/data/manuscript_variables.json` with different bytes (two runs a second apart hashed `ef72f22d…` and `06dde2df…`) while the manuscript, `AGENTS.md`, and `docs/architecture.md` all claimed no wall-clock dependence. The existing token tests injected a fixed `now`, so they could never see it. | The stamp now comes from the committed `paper.date` in `manuscript/config.yaml` via `manuscript_variables.generation_timestamp()`; `--now` remains an explicit override and is no longer needed for determinism. `tests/test_regeneration_determinism.py` runs the real CLI twice, 1.05 s apart, with no override and compares every written byte of the JSON and all five PNGs — proven failable by temporarily restoring the wall clock (3 tests red). Prose in `manuscript/06_reproducibility.md`, `AGENTS.md`, `docs/architecture.md`, `docs/agent_instructions.md`, `docs/testing_philosophy.md`, `scripts/README.md`, and `scripts/CONVENTIONS.md` updated to state what actually runs. |
+## Round-2 (2026-08-06)
+
+Deep-improvement pass: hostile review of the code plus a manuscript depth pass.
+Baseline this session (before edits) was **192 passed, 0 failed, 0 skipped,
+100.00% line+branch coverage of `src/`** on CPython 3.14.6 / macOS arm64, with
+ruff and mypy clean — the pre-existing suite was already fully green. The work
+here closed four open TODO items (C1, V1, V2, V4), opened V5 to done, closed
+D1, and added a NaN-hardening defect fix plus a cross-module drift guard.
+
+### Findings → fixes (each with a regression or negative-control test)
+
+| Finding | Fix | Test evidence |
+|---|---|---|
+| **NaN accepted by every domain validator.** `_require_positive`/`_require_nonneg` in `dive_planner`, `submersible_logistics`, `sonar_detection`, `current_navigation`, and `interdiction_analysis` let `float('nan')` through (`nan <= 0` is false, so the guard never fired), silently propagating NaN into bottom times, ranges, and verdicts. `inf` was likewise accepted for positive-only quantities. | All five validators reject NaN (and non-finite for positive quantities). `inf` remains legal in the one place it is meaningful: `interdiction_status(inf, ...)`, since `time_to_minimum_separation` returns `inf` for "never". | `tests/test_nan_rejection.py` (11 tests): NaN/`inf` raise `ValueError` across all five modules; `test_interdiction_status_accepts_inf_min_sep` pins that the hardening does not regress the legal-`inf` path. |
+| **C1 — stale token count in AGENTS.md** (`53` vs the live 55). | Removed the number; `AGENTS.md` now points at `docs/_generated/COUNTS.md` (the one generated place a count may live). | V1 gate (below) fails if any number is re-introduced. |
+| **V1 — no gate against a hardcoded count decaying in prose.** | `tests/test_manuscript_lint.py::test_no_measured_metric_decays_in_agent_facing_prose` scans `AGENTS.md`, `README.md`, and all `docs/*.md` (excluding COUNTS.md) for token/test/coverage counts and fails on any. Pinned non-vacuous (asserts ≥6 docs scanned). | **Failable**: re-adding `62 computed manuscript tokens` to AGENTS.md makes the gate fail; reverting passes. |
+| **V2 — three figures asserted only non-empty PNGs.** `plot_ndl_curve`, `plot_submersible_range`, `plot_transmission_loss` could draw a constant and pass. | Hardened so each renders differently for two inputs the domain distinguishes. | `tests/test_figures.py::test_ndl_curve_depends_on_the_model_it_is_given`, `..._depends_on_energy`, `..._depends_on_frequency` assert different bytes. |
+| **V4 — no lint gate on the manuscript.** A dangling `@fig:`/`@sec:` label or a bib key with no entry passed every gate. | `tests/test_manuscript_lint.py::test_manuscript_crossref_labels_resolve` (referenced label ⊆ defined) and `..._citation_keys_resolve` (cited key ⊆ `references.bib`). Both pinned non-vacuous. | **Failable**: adding `@fig:nonexistent` and `[@no_such_bib_key]` to `03_results.md` makes both fail; reverting passes. Confirmed red then green. |
+| **Cross-module drift: `figures.FLAGSHIP_DIVE` was a hardcoded literal** (`12, 207, 20, 40`) duplicating `config.yaml`, so the drift figure's default bottom time could silently move off the manuscript's if config changed. | `tests/test_figures.py::test_figures_flagship_dive_binds_to_config` asserts `FLAGSHIP_DIVE` equals the config recovery params and that `_flagship_bottom_hours()` matches the manuscript's `RESULT_DIVE_BOTTOM_MIN`. | Test added; passes with the current (agreeing) values. |
+| **D1 — `wall_time_s=0.0` had no rationale** and read as a stub. | Added a comment at the assignment in `mission.py` stating it is pinned by the determinism guardrail (no wall-clock in artifacts), so a maintainer will not "fix" it into non-reproducibility. | `grep -n -B2 wall_time_s src/thunderball/mission.py` shows the rationale. |
+| **V5 — no rendered-PDF check / responsibility undefined.** | Documented that rendering to a compiled PDF is the suite compendium's responsibility, outside this package — the "known boundary" branch of V5's done-when. | `README.md` "Scope note" carries the statement; `uv run pytest tests/ -q` stays green. |
+
+### Manuscript improvements
+
+- **New section `manuscript/08_discussion.md`** — "Discussion and Uncertainty": an
+  honest per-capability statement of where each of the six models' idealising
+  assumptions break and how the reported precision differs from accuracy,
+  referencing live `{{RESULT_*}}`/`{{CONFIG_*}}` tokens throughout. Argues the
+  central result (decompression, not gas, binds — `RESULT_DIVE_BINDING_CONSTRAINT`)
+  is the *most robust* finding because the two limits are more than a factor of
+  two apart, not a borderline tie.
+- **Verdict summary table** added at the top of `manuscript/03_results.md` —
+  one row per capability, every cell a live token (NDL, air limit, binding
+  constraint, convoy score, sonar range, drift, interdiction status).
+- **`01_introduction.md`** roadmap now cites `@sec:discussion`; `03_results.md`
+  and `05_experimental_setup.md` unchanged elsewhere.
+- No hand-authored numbers introduced: all new prose sits on pre-existing
+  tokens (55, unchanged), so both manuscript cross-reference gates still hold.
+- `docs/_generated/COUNTS.md` regenerated from the measured run (210 tests, per-file
+  table, 55 tokens, new gate rows).
+
+### Gate numbers (final, measured this session)
+
+- `uv run pytest tests/ --cov=src --cov-fail-under=90`: **210 passed, 0 failed, 0 skipped, 100.00%** coverage of `src/` (floor 90%).
+- `uv run ruff check src/ scripts/ tests/`: clean.
+- `uv run ruff format --check src/ scripts/ tests/`: clean.
+- `uv run mypy src/ scripts/`: clean (20 source files).
+- All three guardrail greps (mock / infrastructure / bond-api-only-in-mission): Clean.
+- Deterministic regeneration (`scripts/z_generate_manuscript_variables.py` +
+  `run_mission.py`): leaves no tracked tree dirty; `test_regeneration_determinism.py` passes.
+
+### Left for a future round
+
+- **V3 — the `>=3.10` floor remains untested.** Attempted
+  `uv run --python 3.10 pytest tests/ --cov=src --cov-fail-under=90 -q`; the
+  pure-domain tests that don't import `bond_api` ran on 3.10, but collection
+  aborted at `test_mission.py` with `ModuleNotFoundError: No module named
+  'bond_api'` because the path dependency is not installed into an ad-hoc 3.10
+  interpreter. Binding it properly needs a full `uv sync --python 3.10`
+  (network + building the bond-api path dep for a second interpreter), which is
+  a fleet-wide convention decision rather than a thunderball-local fix. Note:
+  forcing `--python 3.10` re-targets the project `.venv`; recover with
+  `rm -rf .venv && uv sync --extra dev --python 3.14`.
+- **Persistent provenance binding** (`bond_utilities.mission_io.record_provenance_outcome`)
+  and **portable path dependency** remain fleet-convention items (see "Integration"
+  above); unchanged in this round.
+- New model refinements (gradient factors, probabilistic sonar, depth-sheared
+  current, multi-track interdiction) remain extension work, now each tied in
+  `08_discussion.md` to the uncertainty it would reduce.
+

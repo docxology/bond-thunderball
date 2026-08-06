@@ -250,10 +250,15 @@ def assess_interdiction(
 
 
 def _require_positive(value: float, label: str) -> None:
-    if not isinstance(value, (int, float)) or value <= 0:
-        raise ValueError(f"{label} must be a positive number")
+    # isfinite() rejects NaN (silent-propagating) and +/-inf (no finite
+    # physical positive), so a bad argument cannot leak a degenerate result
+    # downstream instead of failing loudly.
+    if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{label} must be a positive finite number")
 
 
 def _require_nonneg(value: float, label: str) -> None:
-    if not isinstance(value, (int, float)) or value < 0:
+    # NaN is always a defect signal; +/-inf is left to the caller's semantics
+    # (time_to_minimum_separation may legally return inf to mean "never").
+    if not isinstance(value, (int, float)) or math.isnan(value) or value < 0:
         raise ValueError(f"{label} must be a non-negative number")

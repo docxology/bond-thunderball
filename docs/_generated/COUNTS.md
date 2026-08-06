@@ -9,7 +9,7 @@ uv run pytest tests/ --cov=src --cov-fail-under=90
 
 ## Test suite
 
-- Test count: **192**
+- Test count: **210**
 - Line + branch coverage on `src/`: **100.00%** (gate: 90%)
 - Failures: **0** · Skipped: **0** · Mock-framework uses: **0**
 
@@ -39,10 +39,12 @@ per-module tests.
 | `test_convoy_integrity.py` | 29 |
 | `test_current_navigation.py` | 20 |
 | `test_dive_planner.py` | 29 |
-| `test_figures.py` | 8 |
+| `test_figures.py` | 12 |
 | `test_interdiction_analysis.py` | 22 |
+| `test_manuscript_lint.py` | 3 |
 | `test_manuscript_variables.py` | 14 |
 | `test_mission.py` | 16 |
+| `test_nan_rejection.py` | 11 |
 | `test_regeneration_determinism.py` | 10 |
 | `test_scripts_smoke.py` | 10 |
 | `test_sonar_detection.py` | 19 |
@@ -55,5 +57,11 @@ per-module tests.
   `test_all_manuscript_tokens_are_generated`)
 - Generated but never referenced: **0** (gated by
   `test_no_generated_token_is_orphaned`)
+- Crossref labels referenced but never defined: **0** (gated by
+  `test_manuscript_crossref_labels_resolve`)
+- Citation keys absent from `references.bib`: **0** (gated by
+  `test_manuscript_citation_keys_resolve`)
+- Measured metric decaying in agent-facing prose: **0** (gated by
+  `test_no_measured_metric_decays_in_agent_facing_prose`)
 
-Measured on Python 3.14.6, macOS (darwin), 2026-08-05.
+Measured on Python 3.14.6, macOS (darwin), 2026-08-06.

@@ -1,5 +1,25 @@
 # Results {#sec:results}
 
+## Flagship verdict summary
+
+For the flagship recovery profile the six capabilities report the following
+deterministic verdicts; each row is a live token from the engine, not a
+hand-copied constant.
+
+| Capability | Verdict |
+|---|---|
+| Dive — no-decompression limit | {{RESULT_NDL_MINUTES}} min |
+| Dive — air-supply limit | {{RESULT_AIR_DURATION_MIN}} min |
+| Dive — binding constraint | {{RESULT_DIVE_BINDING_CONSTRAINT}} |
+| Dive — decompression stops | {{RESULT_DIVE_DECO_STOPS}} |
+| Convoy — integrity status | {{RESULT_CONVOY_STATUS}} (score {{RESULT_CONVOY_SCORE}}) |
+| Convoy — uncovered sector | {{RESULT_UNCOVERED_SECTOR_DEG}}° |
+| Submersible — optimal range | {{RESULT_OPTIMAL_RANGE_NM}} nm |
+| Sonar — detection range | {{RESULT_SONAR_RANGE_NM}} nm |
+| Navigation — drift | {{RESULT_NAV_DRIFT_NM}} nm (within recovery: {{RESULT_NAV_WITHIN_RECOVERY}}) |
+| Interdiction — status | {{RESULT_INTERDICTION_STATUS}} |
+
+
 ## Dive planning results
 
 For the flagship recovery profile (working depth {{CONFIG_RECOVERY_DEPTH_M}} m),

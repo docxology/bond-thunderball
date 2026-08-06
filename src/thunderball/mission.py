@@ -381,6 +381,10 @@ class MissionProvider:
                 package_version=_PACKAGE_VERSION,
                 seed=SEED,
                 input_hash="thunderball-disco-volante-recovery",
+                # wall_time_s is pinned to 0.0 by the determinism guardrail
+                # (AGENTS.md: "no wall-clock anywhere in generated artifacts"):
+                # a real elapsed time would make execute() non-reproducible.
+                # This is load-bearing, not a stub.
                 wall_time_s=0.0,
             ),
         )

@@ -108,4 +108,9 @@ probability of detection. See
 [`manuscript/07_scope_and_related_work.md`](manuscript/07_scope_and_related_work.md)
 for the full boundary.
 
+Rendering this manuscript to a compiled PDF is the responsibility of the
+suite compendium build, which lives outside this package; nothing in
+thunderball renders its own PDF.
+
+
 This is a **local-only** working tree; there is no remote.

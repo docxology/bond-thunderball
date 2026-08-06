@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
+from thunderball.dive_planner import BuhlmannModel
 from thunderball.figures import (
     plot_convoy_screen,
     plot_drift_geometry,
@@ -107,3 +110,67 @@ def test_drift_geometry_duration_defaults_to_the_domain_bottom_time(
         duration_h=expected, figures_out=str(tmp_path / "explicit")
     )
     assert Path(default).read_bytes() == Path(explicit).read_bytes()
+
+
+class _StricterModel(BuhlmannModel):
+    """ZH-L16A with every surfacing ceiling lowered: strictly shorter NDLs."""
+
+    a_coeff = tuple(a + 0.5 for a in BuhlmannModel.a_coeff)
+
+
+def test_ndl_curve_depends_on_the_model_it_is_given(tmp_path) -> None:
+    """V2 regression: plot_ndl_curve once asserted only that a non-empty PNG
+    appeared, so a constant (depth-blind) curve would pass. Two models the
+    domain distinguishes must render differently."""
+    default = plot_ndl_curve(figures_out=str(tmp_path / "default"))
+    stricter = plot_ndl_curve(
+        model=_StricterModel(), figures_out=str(tmp_path / "stricter")
+    )
+    assert Path(default).read_bytes() != Path(stricter).read_bytes()
+
+
+def test_submersible_range_depends_on_energy(tmp_path) -> None:
+    """V2 regression: a range figure that ignored its energy argument would
+    render identically for every budget."""
+    full = plot_submersible_range(400.0, 0.035, 2.0, figures_out=str(tmp_path / "full"))
+    half = plot_submersible_range(200.0, 0.035, 2.0, figures_out=str(tmp_path / "half"))
+    assert Path(full).read_bytes() != Path(half).read_bytes()
+
+
+def test_transmission_loss_depends_on_frequency(tmp_path) -> None:
+    """V2 regression: the figure must follow the f_khz argument — Thorp
+    absorption differs by orders of magnitude, so identical bytes prove the
+    figure ignores its frequency."""
+    low = plot_transmission_loss(f_khz=1.0, figures_out=str(tmp_path / "low"))
+    high = plot_transmission_loss(f_khz=100.0, figures_out=str(tmp_path / "high"))
+    assert Path(low).read_bytes() != Path(high).read_bytes()
+
+
+def test_figures_flagship_dive_binds_to_config(tmp_path) -> None:
+    """Cross-module drift guard: figures.py's default flagship dive tuple must
+    agree with manuscript/config.yaml and with the manuscript's planned bottom
+    time, so the drift figure cannot silently move off the manuscript."""
+    from thunderball.dive_planner import plan_dive
+    from thunderball.figures import FLAGSHIP_DIVE, _flagship_bottom_hours
+    from thunderball.manuscript_variables import generate_variables, load_mission_config
+
+    PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+    capacity_l, fill_bar, sac_lmin, depth_m = FLAGSHIP_DIVE
+    recovery = load_mission_config(PACKAGE_ROOT)["mission"]["recovery"]
+    assert float(recovery["depth_m"]) == depth_m
+    assert float(recovery["cylinder_capacity_l"]) == capacity_l
+    assert float(recovery["fill_pressure_bar"]) == fill_bar
+    assert float(recovery["sac_rate_lmin"]) == sac_lmin
+    plan = plan_dive(
+        depth_m=depth_m,
+        cylinder_capacity_l=capacity_l,
+        fill_pressure_bar=fill_bar,
+        sac_rate_lmin=sac_lmin,
+    )
+    assert _flagship_bottom_hours() == plan.bottom_minutes / 60.0
+    variables = generate_variables(project_root=PACKAGE_ROOT)
+    # RESULT_DIVE_BOTTOM_MIN is rounded to 2 decimals in minutes, so allow a
+    # small window around the exact planned bottom time.
+    assert _flagship_bottom_hours() == pytest.approx(
+        float(variables["RESULT_DIVE_BOTTOM_MIN"]) / 60.0, abs=5e-3
+    )

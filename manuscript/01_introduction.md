@@ -41,4 +41,5 @@ figures. No numeric result in this prose is hand-authored.
 This manuscript documents the mathematical models (@sec:methodology), the
 computed results (@sec:results), the experimental parameters (@sec:setup), the
 reproducibility guarantees (@sec:reproducibility), and the scope boundary
-(@sec:scope) of the mission software.
+(@sec:scope), and an honest statement of each model's uncertainty
+and where it would break (@sec:discussion).

@@ -27,7 +27,7 @@ capabilities:
 6. **Convoy interdiction** (`interdiction_analysis.py`) — CPA geometry, screen
    penetration time, interdiction status.
 
-Plus `manuscript_variables.py` (53 computed manuscript tokens) and `figures.py`
+Plus `manuscript_variables.py` (live token count — see `docs/_generated/COUNTS.md`) and `figures.py`
 (five concept figures).
 
 ## Layer contract
