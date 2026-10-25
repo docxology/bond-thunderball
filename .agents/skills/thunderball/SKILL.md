@@ -13,15 +13,16 @@ operation. Six pure domain capabilities exposed through the frozen `bond_api`
 
 ## When to use
 
-- Building or maintaining `projects/working/bond/thunderball/`.
+- Building or maintaining the `bond-thunderball` repository (originally
+  `projects/working/bond/thunderball/` in the BOND suite monorepo).
 - Extending dive planning, convoy integrity, submersible logistics, passive
   sonar, set-and-drift navigation, or convoy interdiction.
 
 ## Quick reference
 
 ```bash
-cd projects/working/bond/thunderball
-uv sync --extra dev                       # bind bond-api path dep, install editable
+cd <repo-root>                            # this package's own repository
+uv sync --extra dev                       # binds the bond-api path dep (needs the suite checkout)
 uv run pytest tests/ --cov=src --cov-fail-under=90
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
@@ -50,7 +51,10 @@ uv run python scripts/run_mission.py       # full five-stage mission
 ## Pitfalls
 
 - Run `uv sync --extra dev` after touching `pyproject.toml`; a fresh scaffold
-  venv has no deps.
+  venv has no deps. In a standalone clone `uv sync`/`uv lock` fail instead —
+  the `bond-api` path dependency in `[tool.uv.sources]` points into the suite
+  monorepo. Install the third-party deps directly and run the suite with
+  `PYTHONPATH=src` (see `STANDALONE.md`).
 - Keep the four frozen names stable: `MissionProvider`, `PROVIDER`, `GADGETS`,
   `_register_film_gadgets`. Adding a `results` key is safe; renaming is not.
 - Domain core must stay importable without `bond-api` (subprocess-probed).

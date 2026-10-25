@@ -15,7 +15,8 @@ authors:
     corresponding: true
 
 publication:
-  # Local-only working tree: no remote, no DOI. Fields document the intended
+  # No external DOI; the canonical remote is
+  # https://github.com/docxology/bond-thunderball. Fields document the intended
   # publication surface for the fork contract; none are resolvable yet.
   journal: "BOND Film Series — Internal"
   year: "2026"

@@ -7,6 +7,9 @@ layers:
       - src/thunderball/dive_planner.py
       - src/thunderball/convoy_integrity.py
       - src/thunderball/submersible_logistics.py
+      - src/thunderball/sonar_detection.py
+      - src/thunderball/current_navigation.py
+      - src/thunderball/interdiction_analysis.py
     rules:
       - no infrastructure imports
       - no bond_api imports
@@ -30,4 +33,5 @@ layers:
       - scripts/
     rules:
       - thin orchestrators; no business logic
-      - sys.path bootstrap via scripts/_bootstrap.py
+      - no sys.path manipulation; the editable install (uv sync --extra dev)
+        provides `import thunderball`

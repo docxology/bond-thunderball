@@ -8,7 +8,7 @@ manuscript-specific editing (tokens, figures, cross-references).
 
 | File | Role |
 |---|---|
-| `00_abstract.md` … `07_scope_and_related_work.md`, `99_references.md` | manuscript sections |
+| `00_abstract.md` … `08_discussion.md`, `99_references.md` | manuscript sections |
 | `config.yaml` | paper metadata + `mission:` parameters (source of truth for tokens) |
 | `config.yaml.example` | reference copy of the config schema |
 | `layer_contract.yaml` | layer-boundary validation |

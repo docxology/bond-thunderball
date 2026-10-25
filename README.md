@@ -73,6 +73,12 @@ uv run python scripts/render_figures.py                  # concept figures
 uv run python scripts/z_generate_manuscript_variables.py # manuscript tokens + figures
 ```
 
+`uv sync` also binds `bond-api`, declared in `[tool.uv.sources]` as a local path
+into the BOND suite checkout, so it cannot resolve in this standalone repository
+(see [`STANDALONE.md`](STANDALONE.md)). Standalone, install numpy, matplotlib,
+pyyaml, pytest, pytest-cov, ruff, and mypy directly and run the same commands
+with `PYTHONPATH=src` in front.
+
 ## Verification
 
 ```bash
@@ -113,4 +119,7 @@ suite compendium build, which lives outside this package; nothing in
 thunderball renders its own PDF.
 
 
-This is a **local-only** working tree; there is no remote.
+Canonical remote: <https://github.com/docxology/bond-thunderball> (`origin`,
+default branch `main`). The package's original home was
+`projects/working/bond/thunderball/` in the BOND suite monorepo; this repository
+is the standalone copy — see [`STANDALONE.md`](STANDALONE.md).

@@ -13,7 +13,8 @@ suite-level guardrails apply on top of everything here.
    "Green is not proof" section describes a real defect this package shipped
    for two phases; do not reintroduce that class of test.
 4. Consult `src/thunderball/mission.py` and the frozen protocol
-   (`bond-api/src/bond_api/protocol.py`) before changing the adapter. The
+   (`bond_api.protocol`, the `bond-api` path dependency declared in
+   `pyproject.toml`) before changing the adapter. The
    protocol is frozen — do not invent types.
 
 ## Hard rules

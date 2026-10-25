@@ -1,9 +1,10 @@
 # AGENTS.md — Thunderball (DISCO VOLANTE)
 
-**Important:** this is a BOND film package (`projects/working/bond/thunderball/`).
-It is a **local-only** working tree — never push, never touch sibling packages.
-Scope your edits to this directory only, and commit path-scoped within this
-package's own git repo.
+**Important:** this is a BOND film package, published standalone at
+<https://github.com/docxology/bond-thunderball>. Its original home was
+`projects/working/bond/thunderball/` in the BOND suite monorepo, which is not
+present here — never touch sibling packages. Scope your edits to this
+repository only, and commit path-scoped within it.
 
 ## Mission
 
@@ -64,6 +65,10 @@ Plus `manuscript_variables.py` (live token count — see `docs/_generated/COUNTS
   quantity in an adapter.
 
 ## Build, test, verify
+
+In this standalone repository `uv sync` cannot resolve the `bond-api` path
+dependency (`[tool.uv.sources]` points into the BOND suite checkout) — see
+[`STANDALONE.md`](STANDALONE.md) for the standalone verification recipe.
 
 ```bash
 # Install (binds the bond-api path dependency, installs this package editable)

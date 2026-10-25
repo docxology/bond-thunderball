@@ -5,16 +5,24 @@ underwater nuclear-recovery operation: six stdlib-only domain modules (Bühlmann
 ZH-L16A dive planning, convoy-screen integrity, submersible logistics, passive
 sonar, set-and-drift navigation, convoy interdiction) exposed through the frozen
 `bond_api` `MissionProvider` protocol, plus a token-driven manuscript and five
-generated figures. Measured this session on CPython 3.14.6 / macOS arm64:
-**192 tests passing, 0 failed, 0 skipped, 100.00% line+branch coverage of
-`src/`** against the 90% floor, working tree clean. All five findings in
-`output/verify/thunderball.json` (2 SEVERE, 3 MODERATE) were re-checked against
+generated figures. The live test count and coverage live in
+[`docs/_generated/COUNTS.md`](docs/_generated/COUNTS.md); the figures quoted in
+the round logs below are historical measurements, not current ones. All five
+findings in `output/verify/thunderball.json` (an untracked local artifact; 2
+SEVERE, 3 MODERATE) were re-checked against
 today's code and **all five are closed** — see *Closed since the audit* below.
 There is no `output/verify/thunderball.unresolved.json`, and `_unresolved.json`
 carries no `thunderball` key, so **zero open items here are carried-over
 unresolved audit findings**.
 
 ## Open work
+
+**Status (2026-10-25):** every item below **except V3** was closed in the
+Round-2 pass — C1, V1, V2, V4, and D1 are fixed, and V5 was resolved as the
+documented compendium boundary (see *Round-2* and *Left for a future round*
+below). The tables are kept for their reasoning, not as open work. V3 is the
+one item still open, and it is a fleet-wide convention question, not a
+thunderball-local fix.
 
 ### Correctness
 
@@ -100,13 +108,16 @@ work items.
 
 ## Verification
 
-The gate for this package. All commands run from
-`projects/working/bond/thunderball/`.
+The gate for this package. All commands run from this repository's root.
+
+In a standalone clone `uv sync` cannot resolve the `bond-api` path dependency
+(see `STANDALONE.md`); install the third-party dependencies directly and prefix
+the commands below with `PYTHONPATH=src` instead.
 
 ```bash
 uv sync --extra dev                                    # binds the bond-api path dep
 
-uv run pytest tests/ --cov=src --cov-fail-under=90     # 182 passed, 100.00% cover
+uv run pytest tests/ --cov=src --cov-fail-under=90     # live numbers: docs/_generated/COUNTS.md
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
@@ -123,12 +134,11 @@ uv run python scripts/z_generate_manuscript_variables.py \
 uv run python scripts/run_mission.py
 ```
 
-Expected outcomes as measured on 2026-08-05, CPython 3.14.6 / macOS arm64:
-182 passed, 0 failed, 0 skipped, 100.00% line+branch coverage of `src/` (floor
-90%), ruff and mypy clean, all three guardrail greps `Clean`, `git status`
-clean after regeneration. Regenerate `docs/_generated/COUNTS.md` from what you
-measured after any test change — it is the only place in this package where a
-coverage number or test count is quoted.
+Expected outcome: the coverage gate green with zero failures and skips, ruff
+and mypy clean, all three guardrail greps `Clean`, and `git status` clean after
+regeneration. The last measured numbers are in `docs/_generated/COUNTS.md`;
+regenerate that file from what you measured after any test change — it is the
+only place in this package where a coverage number or test count is quoted.
 
 ## Closed since the audit
 

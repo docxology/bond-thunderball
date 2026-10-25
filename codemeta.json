@@ -2,7 +2,7 @@
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
   "name": "Thunderball: DISCO VOLANTE — Special-Agent Mission Software",
-  "codeRepository": "local-only (no remote)",
+  "codeRepository": "https://github.com/docxology/bond-thunderball",
   "license": "https://spdx.org/licenses/MIT",
   "version": "0.1.0",
   "description": "BOND film package: deterministic special-agent mission software for dive planning (Bühlmann ZH-L16A decompression), NATO convoy integrity analysis, submersible logistics, passive-sonar detection, set-and-drift navigation, and convoy interdiction, exposed through the frozen bond_api MissionProvider protocol.",
