@@ -124,7 +124,7 @@ uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
 
 # Guardrail greps — each must print "Clean"
-grep -rn "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
+grep -rn --include='*.py' "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
 grep -rnE "^(from|import) infrastructure" src/thunderball/ || echo Clean
 grep -rnE "^(from|import) bond_api" src/thunderball/ | grep -v "mission.py" \
   || echo "Clean — only mission.py imports bond_api"

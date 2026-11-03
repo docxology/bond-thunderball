@@ -41,7 +41,7 @@ The repository's own guardrail greps, run at the same head rather than quoted:
 
 | Command | Result |
 | --- | --- |
-| `grep -rn "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/` | no match |
+| `grep -rn --include='*.py' "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/` | no match |
 | `grep -rnE "^(from\|import) infrastructure" src/thunderball/` | no match |
 | `grep -rnE "^(from\|import) bond_api" src/thunderball/` | only `mission.py:19` and `mission.py:32` |
 
