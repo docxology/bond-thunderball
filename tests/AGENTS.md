@@ -40,9 +40,10 @@ Re-check this paragraph if that change has landed here.
 - **Manuscript tokens are generated, never typed twice.** A token that is generated but not
   referenced, and a reference with no token, both fail — `test_manuscript_variables.py`.
 - **A measured figure in prose is treated as decayed already.** The package's own V1 gate
-  (`test_manuscript_lint.py`) scans the root guide, the root `README.md` and `docs/*.md` for exactly
-  that. Folder-level guides sit outside its scan, so the discipline has to be kept by hand: keep
-  counts out of here and point at [`docs/_generated/COUNTS.md`](../docs/_generated/COUNTS.md).
+  (`test_manuscript_lint.py`) walks every folder-level `README.md`/`AGENTS.md` in the package, together
+  with the root guide, the root `README.md` and `docs/*.md`, and fails on a token count, a test count
+  or a coverage percentage in any of them. This file is inside that scan set: keep counts out and point
+  at [`docs/_generated/COUNTS.md`](../docs/_generated/COUNTS.md).
 
 ## What is absent here
 
