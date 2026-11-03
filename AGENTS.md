@@ -77,8 +77,8 @@ uv sync --extra dev
 # Gate
 uv run pytest tests/ --cov=src --cov-fail-under=90 -q
 
-# Guardrail greps
-grep -rn "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
+# Guardrail greps (--include='*.py': the lines that state the prohibition are not violations)
+grep -rn --include='*.py' "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
 grep -rnE "^(from|import) infrastructure" src/thunderball/ || echo Clean
 grep -rnE "^(from|import) bond_api" src/thunderball/ | grep -v "mission.py" \
   || echo "Clean — only mission.py imports bond_api"
