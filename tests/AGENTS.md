@@ -28,8 +28,10 @@ Re-check this paragraph if that change has landed here.
 
 ## Rules
 
-- **Zero mocks.** No `unittest.mock`, `MagicMock`, `@patch` or `create_autospec` anywhere in this
-  directory; `grep -rn "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/` returns nothing.
+- **Zero mocks.** No `unittest.mock`, `MagicMock`, `@patch` or `create_autospec` in any module in this
+  directory; `grep -rn --include='*.py' "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/`
+  returns nothing. The `--include='*.py'` scope is load-bearing: without it the search matches the
+  sentence stating this prohibition, in this file, and reads exactly like a violation.
   A deterministic stand-in is a real subclass with real coefficients, computed against.
 - **NaN is rejected, not tolerated.** `test_nan_rejection.py` is a negative-control suite over every
   domain module that accepts floats; a new module that silently propagates NaN belongs in it.
