@@ -230,3 +230,10 @@ D1, and added a NaN-hardening defect fix plus a cross-module drift guard.
   current, multi-track interdiction) remain extension work, now each tied in
   `08_discussion.md` to the uncertainty it would reduce.
 
+## Workflowz review — 2026-11-10
+
+### Verification
+
+| # | Item |
+|---|---|
+| **W1** | **P2 — Align the declared Python floor with the checked-in interpreter target and static-check settings.** `.python-version:1` selects `3.15`, while `pyproject.toml:16` declares `requires-python = ">=3.11"`; `pyproject.toml:64` still sets Ruff `target-version = "py310"` and `pyproject.toml:67` sets mypy `python_version = "3.10"`. **Done when:** the project explicitly targets Python 3.15.2 (`.python-version` `3.15.2`, `requires-python = ">=3.15.2,<3.16"`, Ruff `py315`, and mypy `3.15`), or a documented compatibility constraint justifies a lower floor while Ruff/mypy are at least raised to the declared floor. Do not claim that 3.15.2 was executed or that any dependency is outdated without running the environment. **Acceptance probe:** from the repository root, with Python 3.15.2 and the standalone dependencies from `README.md:76-80` available, run `PYTHONPATH=src python -c "import sys, thunderball; assert sys.version_info[:3] == (3, 15, 2); print(thunderball.__version__)"` and expect `0.1.0`; then run `PYTHONPATH=src python -m pytest tests/ -q` and expect zero failures/skips. **Dependencies/constraints:** the full suite requires the unavailable sibling `bond-api` checkout (`pyproject.toml:33-34`; `README.md:76-80`); use the documented standalone dependency setup where possible and record any unexecuted probe honestly. This supersedes the stale V3 declaration quoted in `TODO.md:45`, which cites the former `>=3.10` floor rather than current `pyproject.toml:16`. |
