@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _fixed_now() -> datetime:
-    return datetime(2026, 8, 4, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2026, 8, 4, 12, 0, 0, tzinfo=UTC)
 
 
 def test_load_mission_config_returns_mapping() -> None:
