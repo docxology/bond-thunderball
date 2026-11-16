@@ -17,7 +17,7 @@ import hashlib
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -83,7 +83,7 @@ def test_generated_json_carries_no_wall_clock_stamp() -> None:
     expected = generation_timestamp(config["paper"])
     assert f'"{expected}"' in written
     # And it is not merely coincident with the moment of the run.
-    now_second = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now_second = datetime.now(UTC).isoformat(timespec="seconds")
     assert expected != now_second
 
 
@@ -96,7 +96,7 @@ def test_generate_variables_defaults_to_committed_config_date() -> None:
 
 
 def test_generation_timestamp_honours_explicit_override() -> None:
-    pinned = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    pinned = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
     assert generation_timestamp({"date": "2026-08-04"}, pinned) == (
         "2026-01-01T00:00:00+00:00"
     )

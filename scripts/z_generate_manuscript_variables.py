@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
 
     now = None
     if args.now:
-        now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+        now = datetime.fromisoformat(args.now)
 
     variables = generate_variables(project_root=PROJECT_ROOT, now=now)
     DATA_OUT.mkdir(parents=True, exist_ok=True)

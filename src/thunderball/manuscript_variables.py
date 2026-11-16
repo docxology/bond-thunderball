@@ -16,7 +16,7 @@ twice, more than a clock-tick apart, and compares the written bytes.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -100,13 +100,13 @@ def generation_timestamp(paper: dict[str, Any], now: datetime | None = None) -> 
                 "the stamp is taken from the committed config, never the clock"
             )
         try:
-            stamp = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+            stamp = datetime.fromisoformat(raw.strip())
         except ValueError as exc:
             raise ValueError(
                 f"config.yaml paper.date is not an ISO date: {raw!r}"
             ) from exc
     if stamp.tzinfo is None:
-        stamp = stamp.replace(tzinfo=timezone.utc)
+        stamp = stamp.replace(tzinfo=UTC)
     return stamp.isoformat(timespec="seconds")
 
 
