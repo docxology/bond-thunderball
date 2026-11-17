@@ -6,6 +6,30 @@ A BOND-suite film package: deterministic special-agent mission software for the
 underwater recovery of two hijacked NATO nuclear bombs. Six pure domain
 capabilities, exposed through the frozen `bond_api` `MissionProvider` protocol.
 
+## Mission model
+
+```mermaid
+flowchart TD
+    accTitle: DISCO VOLANTE implemented mission analyses
+    accDescr: Dive profile, currents, sonar, craft and convoy parameters feed Gas/decompression plan and current navigation; Sonar range and submersible energy/endurance; Escort-screen coverage and dynamic interdiction. The mission adapter returns dive, navigation, endurance and convoy assessments with provenance, then a debrief.
+    I["Dive profile, currents, sonar, craft and convoy parameters"]
+    G0["Gas/decompression plan and current navigation"]
+    I --> G0
+    G1["Sonar range and submersible energy/endurance"]
+    I --> G1
+    G2["Escort-screen coverage and dynamic interdiction"]
+    I --> G2
+    O["mission.py: execute returns MissionOutcome<br/>Dive, navigation, endurance and convoy assessments and provenance"]
+    G0 --> O
+    G1 --> O
+    G2 --> O
+    O --> F["debrief: mission summary"]
+```
+
+The branches group implemented capabilities; they do not imply a runtime order.
+
+**Source map:** [`dive_planner.py`](src/thunderball/dive_planner.py), [`current_navigation.py`](src/thunderball/current_navigation.py); [`sonar_detection.py`](src/thunderball/sonar_detection.py), [`submersible_logistics.py`](src/thunderball/submersible_logistics.py); [`convoy_integrity.py`](src/thunderball/convoy_integrity.py), [`interdiction_analysis.py`](src/thunderball/interdiction_analysis.py); [`mission.py`](src/thunderball/mission.py).
+
 ## Film → software mapping
 
 *Thunderball* is the Bond film that goes underwater and stays there. SPECTRE
