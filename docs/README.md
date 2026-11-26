@@ -1,5 +1,7 @@
 # docs — Thunderball (DISCO VOLANTE)
 
+[Package maintenance](package-maintenance.md) covers dependency and release records.
+
 Agent-facing documentation hub for the `thunderball` BOND film package. Every
 document here is a working rule for agents and developers in this package, not
 background reading.

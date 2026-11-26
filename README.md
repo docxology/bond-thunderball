@@ -1,5 +1,7 @@
 # Thunderball — DISCO VOLANTE Mission Software
 
+See [package maintenance](docs/package-maintenance.md) for dependency and citation records.
+
 **film:** Thunderball (1965) · **mission codename:** DISCO VOLANTE
 
 A BOND-suite film package: deterministic special-agent mission software for the

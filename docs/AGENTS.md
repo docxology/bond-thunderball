@@ -1,5 +1,7 @@
 # AGENTS.md — docs/
 
+[Package maintenance](package-maintenance.md) identifies the dependency and citation records.
+
 This directory holds the agent-facing documentation for the `thunderball` BOND
 film package (mission codename DISCO VOLANTE).
 
