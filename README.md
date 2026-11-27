@@ -1,6 +1,7 @@
 # Thunderball — DISCO VOLANTE Mission Software
 
-See [package maintenance](docs/package-maintenance.md) for dependency and citation records.
+For the distribution version, checkout Python selection, dependency sources,
+and citation records, see [package maintenance](docs/package-maintenance.md).
 
 **film:** Thunderball (1965) · **mission codename:** DISCO VOLANTE
 
