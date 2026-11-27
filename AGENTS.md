@@ -1,5 +1,8 @@
 # AGENTS.md — Thunderball (DISCO VOLANTE)
 
+The [package maintenance guide](docs/package-maintenance.md) records the
+distribution identity, Python selection, dependency provenance, and citation metadata.
+
 **Important:** this is a BOND film package, published standalone at
 <https://github.com/docxology/bond-thunderball>. Its original home was
 `projects/working/bond/thunderball/` in the BOND suite monorepo, which is not
